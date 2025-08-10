@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react"
 import { ContractPreview } from "@/components/contract-preview"
 import { Agency } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
+import { toast } from "sonner"
 
 type Status = "draft" | "review" | "signed" | "completed";
 
@@ -45,16 +46,19 @@ export default function DashboardPage() {
   const contractPreviewRef = useRef<HTMLDivElement>(null)
   const [contractToDownload, setContractToDownload] = useState<ContractData | null>(null)
 
+  // Check authentication on component mount
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
 
+  // Load contracts when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       loadContracts()
     }
   }, [isAuthenticated, loadContracts])
 
+  // Effect to trigger PDF generation when contractToDownload is set
   useEffect(() => {
     const generatePdf = async () => {
       if (contractToDownload && contractPreviewRef.current && agency) {
@@ -100,6 +104,7 @@ export default function DashboardPage() {
     generatePdf()
   }, [contractToDownload, agency])
 
+  // Filter contracts with error handling
   const filteredContracts = contracts.filter((contract: ContractData) => {
     try {
       const matchesSearch =
@@ -107,7 +112,8 @@ export default function DashboardPage() {
         (contract.clientName || "").toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || contract.status === statusFilter
       return matchesSearch && matchesStatus
-    } catch {
+    } catch (error) {
+      console.error("Error filtering contract:", error)
       return false
     }
   })
@@ -117,6 +123,7 @@ export default function DashboardPage() {
     const draft = contracts.filter((c: ContractData) => c.status === "draft").length
     const signed = contracts.filter((c: ContractData) => c.status === "signed").length
     const completed = contracts.filter((c: ContractData) => c.status === "completed").length
+
     return { total, draft, signed, completed }
   }, [contracts])
 
@@ -135,47 +142,77 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-8">
+    <div className="container mx-auto p-6 space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { title: "Total Contracts", value: stats.total, icon: FileText, delay: 0.1 },
-          { title: "Draft", value: stats.draft, icon: Clock, delay: 0.2 },
-          { title: "Signed", value: stats.signed, icon: CheckCircle, delay: 0.3 },
-          { title: "Completed", value: stats.completed, icon: Users, delay: 0.4 },
-        ].map((stat, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: stat.delay }}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Contracts</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Draft</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.draft}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Signed</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.signed}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completed}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Contracts Table */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Contracts</CardTitle>
                 <CardDescription>Manage and track all your contracts in one place</CardDescription>
               </div>
               <Button asChild>
                 <a href="/wizard">
-                  <Plus className="mr-2 h-4 w-4" /> New Contract
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Contract
                 </a>
               </Button>
             </div>
 
             {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4 mt-4">
+            <div className="flex items-center space-x-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -187,17 +224,17 @@ export default function DashboardPage() {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto">
+                  <Button variant="outline">
                     <Filter className="mr-2 h-4 w-4" />
                     Status: {statusFilter === "all" ? "All" : statusFilter}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  {["all", "draft", "review", "signed", "completed"].map(status => (
-                    <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuItem onClick={() => setStatusFilter("all")}>All</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("review")}>Review</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("signed")}>Signed</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter("completed")}>Completed</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -220,77 +257,106 @@ export default function DashboardPage() {
                 </p>
                 <Button asChild>
                   <a href="/wizard">
-                    <Plus className="mr-2 h-4 w-4" /> Create Contract
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Contract
                   </a>
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredContracts.map((contract: ContractData) => {
-                      const StatusIcon = statusIcons[contract.status as Status]
-                      return (
-                        <TableRow key={contract.id ?? ''}>
-                          <TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Shareable Link</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredContracts.map((contract: ContractData) => {
+                    const StatusIcon = statusIcons[contract.status as Status]
+                    return (
+                      <TableRow key={contract.id ?? ''}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <StatusIcon className="h-4 w-4" />
+                            <Badge variant="outline" className={statusColors[contract.status as Status]}>
+                              {contract.status}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>{contract.clientName}</TableCell>
+                        <TableCell>{contract.projectTitle}</TableCell>
+                        <TableCell>{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {contract.shareableLink ? (
                             <div className="flex items-center gap-2">
-                              <StatusIcon className="h-4 w-4" />
-                              <Badge variant="outline" className={statusColors[contract.status as Status]}>
-                                {contract.status}
-                              </Badge>
+                              <a
+                                href={contract.shareableLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline truncate max-w-xs"
+                                title={contract.shareableLink}
+                              >
+                                {contract.shareableLink}
+                              </a>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(contract.shareableLink!)
+                                  toast.success("Link copied to clipboard!")
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </TableCell>
-                          <TableCell>{contract.clientName}</TableCell>
-                          <TableCell>{contract.projectTitle}</TableCell>
-                          <TableCell>{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
-                                  <Edit className="mr-2 h-4 w-4" /> View/Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
-                                  <Copy className="mr-2 h-4 w-4" /> Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setContractToDownload(contract)}>
-                                  <Download className="mr-2 h-4 w-4" /> Download
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => contract.id && deleteContract(contract.id)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                          ) : (
+                            <span className="text-muted-foreground">Not generated</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                View/Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setContractToDownload(contract)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => contract.id && deleteContract(contract.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Hidden Contract Preview for PDF */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
         {contractToDownload && agency && (
           <div id="contract-preview-content" ref={contractPreviewRef} style={{ visibility: 'hidden' }}>

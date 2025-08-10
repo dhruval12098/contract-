@@ -47,7 +47,7 @@ export default function WizardPage() {
   const contractId = searchParams.get("id")
 
   const { currentStep, setCurrentStep, currentContract, updateContract, loadContract, resetContract } = useContractStore()
-  const { agency, clauses } = useAuthStore() // Add clauses
+  const { agency, clauses } = useAuthStore()
 
   // Fallback agency data
   const defaultAgency = {
@@ -131,28 +131,28 @@ export default function WizardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
+      <div className="container mx-auto p-4 sm:p-6 max-w-full">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 sm:w-10 h-8 sm:h-10 bg-primary rounded-lg flex items-center justify-center">
               {currentContract.type === "client" ? (
-                <FileText className="h-5 w-5 text-primary-foreground" />
+                <FileText className="h-4 sm:h-5 w-4 sm:w-5 text-primary-foreground" />
               ) : (
-                <Users className="h-5 w-5 text-primary-foreground" />
+                <Users className="h-4 sm:h-5 w-4 sm:w-5 text-primary-foreground" />
               )}
             </div>
             <div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-xl sm:text-2xl font-bold">
                 {currentContract.type === "client" ? "Client Contract" : "Hiring Contract"} Wizard
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Step {currentStep} of {steps.length}
               </p>
             </div>
@@ -160,7 +160,7 @@ export default function WizardPage() {
 
           {/* Progress Bar */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
+            <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
               <span>{steps[currentStep - 1]?.title}</span>
               <span>{Math.round(progress)}% complete</span>
             </div>
@@ -173,15 +173,15 @@ export default function WizardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="flex items-center justify-between overflow-x-auto pb-4">
+          <div className="flex flex-wrap gap-2 sm:gap-4">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-all duration-300 ${
+                  className={`flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${
                     step.id <= currentStep
-                      ? "bg-primary text-primary-foreground shadow-lg"
+                      ? "bg-primary text-primary-foreground shadow-md"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
@@ -189,7 +189,7 @@ export default function WizardPage() {
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`w-12 h-0.5 mx-2 transition-all duration-300 ${
+                    className={`w-8 sm:w-12 h-0.5 mx-1 sm:mx-2 transition-all duration-300 ${
                       step.id < currentStep ? "bg-primary" : "bg-muted"
                     }`}
                   />
@@ -200,17 +200,17 @@ export default function WizardPage() {
         </motion.div>
 
         {/* Main Content */}
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
           {/* Form Section */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-md border-0 min-h-[48px] max-w-full w-full">
               <CardHeader>
-                <CardTitle>{steps[currentStep - 1]?.title}</CardTitle>
-                <CardDescription>{steps[currentStep - 1]?.description}</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">{steps[currentStep - 1]?.title}</CardTitle>
+                <CardDescription className="text-sm">{steps[currentStep - 1]?.description}</CardDescription>
               </CardHeader>
               <CardContent>
                 <AnimatePresence mode="wait">
@@ -221,6 +221,7 @@ export default function WizardPage() {
                     exit="out"
                     variants={pageVariants}
                     transition={pageTransition}
+                    className="max-w-full"
                   >
                     {renderStep()}
                   </motion.div>
@@ -228,23 +229,23 @@ export default function WizardPage() {
 
                 {/* Navigation Buttons */}
                 {currentStep < 7 && (
-                  <div className="flex justify-between mt-8 pt-6 border-t">
+                  <div className="flex justify-between mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
                     <Button
                       variant="outline"
                       onClick={prevStep}
                       disabled={currentStep === 1}
-                      className="hover:shadow-md transition-shadow bg-transparent"
+                      className="hover:shadow-md transition-shadow bg-transparent text-sm sm:text-base px-3 sm:px-4 py-1 sm:py-2"
                     >
-                      <ChevronLeft className="mr-2 h-4 w-4" />
+                      <ChevronLeft className="mr-1 sm:mr-2 h-4 w-4" />
                       Previous
                     </Button>
                     <Button
                       onClick={nextStep}
                       disabled={currentStep === steps.length}
-                      className="shadow-md hover:shadow-lg transition-shadow"
+                      className="shadow-md hover:shadow-lg transition-shadow text-sm sm:text-base px-3 sm:px-4 py-1 sm:py-2"
                     >
                       Next
-                      <ChevronRight className="ml-2 h-4 w-4" />
+                      <ChevronRight className="ml-1 sm:ml-2 h-4 w-4" />
                     </Button>
                   </div>
                 )}
@@ -258,12 +259,12 @@ export default function WizardPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card className="shadow-lg border-0 h-full">
+            <Card className="shadow-md border-0 min-h-[48px] max-w-full w-full h-full">
               <CardHeader>
-                <CardTitle>Live Preview</CardTitle>
-                <CardDescription>See your contract update in real-time</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">Live Preview</CardTitle>
+                <CardDescription className="text-sm">See your contract update in real-time</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-w-full">
                 <ContractPreview contract={currentContract} agency={agency || defaultAgency} />
               </CardContent>
             </Card>

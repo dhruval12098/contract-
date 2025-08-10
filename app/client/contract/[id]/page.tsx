@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Upload, PenTool, CheckCircle, Download, FileText, Building, User, Edit3, Trash2, RotateCcw, Smartphone, Monitor } from "lucide-react"
+import { Upload, PenTool, CheckCircle, Download, FileText, User, Edit3, RotateCcw, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import { ContractPreview } from "@/components/contract-preview"
 import { usePWAInstall } from "@/hooks/use-pwa-install"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 export default function ClientContractPage() {
   const params = useParams()
@@ -36,15 +37,9 @@ export default function ClientContractPage() {
     setIsSigned 
   } = useClientStore()
   const { agency, checkAuth, isAuthenticated } = useAuthStore()
-  console.log("Agency value in ClientContractPage:", agency);
+  console.log("Agency value in ClientContractPage:", agency)
   
   const [contract, setContract] = useState<any>(null)
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      checkAuth();
-    }
-  }, [isAuthenticated, checkAuth]);
   const [isDrawing, setIsDrawing] = useState(false)
   const [signerName, setSignerName] = useState("")
   const [signerEmail, setSignerEmail] = useState("")
@@ -56,6 +51,12 @@ export default function ClientContractPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Wait for hydration before loading
+  useEffect(() => {
+    if (!isAuthenticated) {
+      checkAuth()
+    }
+  }, [isAuthenticated, checkAuth])
+
   useEffect(() => {
     if (!isHydrated) return
 
@@ -104,10 +105,6 @@ export default function ClientContractPage() {
 
     loadContractData()
   }, [contractId, isHydrated, loadContract, setContractSession, clientName, clientEmail, isSigned, setIsSigned])
-
-  // PWA Install functionality
-  // Moved to usePWAInstall hook
-  // const handleInstallApp = async () => { ... }
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true)
@@ -360,12 +357,43 @@ export default function ClientContractPage() {
 
   if (isSigned || contract.clientSignature) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
+        {/* Client-Only Header */}
+        <div className="bg-white dark:bg-gray-800 border-b shadow-sm">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={agency?.logo || "/placeholder.svg"} alt={agency?.name || "ContractAI"} />
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {agency?.name?.charAt(0) || "A"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h1 className="text-xl font-bold">Contract Signed</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {contract.agencyName} • {contract.type === "client" ? contract.projectTitle : "Employment Contract"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  <User className="h-3 w-3 mr-1" />
+                  Client View
+                </Badge>
+                <div className="text-xs text-muted-foreground">
+                  ID: {contractId.slice(-8)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="max-w-4xl w-full"
+          className="max-w-4xl w-full mx-auto p-6"
         >
           <Card className="shadow-xl border-0 backdrop-blur-sm bg-white/90 dark:bg-gray-800/90">
             <CardContent className="text-center py-8">
@@ -487,9 +515,12 @@ export default function ClientContractPage() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <FileText className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={agency?.logo || "/placeholder.svg"} alt={agency?.name || "ContractAI"} />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {agency?.name?.charAt(0) || "A"}
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <h1 className="text-xl font-bold">Contract Review & Signing</h1>
                 <p className="text-sm text-muted-foreground">
