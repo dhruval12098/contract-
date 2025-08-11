@@ -1,23 +1,45 @@
 "use client"
 
 import * as React from "react"
-import { motion, AnimatePresence, Transition } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, FileText, Users } from "lucide-react"
+import dynamic from "next/dynamic"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useContractStore } from "@/store/contract-store"
 import { useAuthStore } from "@/store/auth-store"
-import { StepOne } from "@/components/wizard/step-one"
-import { StepTwo } from "@/components/wizard/step-two"
-import { StepThree } from "@/components/wizard/step-three"
-import { StepFour } from "@/components/wizard/step-four"
-import { StepFive } from "@/components/wizard/step-five"
-import { StepSix } from "@/components/wizard/step-six"
-import { StepSeven } from "@/components/wizard/step-seven"
-import { ContractPreview } from "@/components/contract-preview"
+
+// Lazy load step components for better performance
+const StepOne = dynamic(() => import("@/components/wizard/step-one").then(mod => ({ default: mod.StepOne })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepTwo = dynamic(() => import("@/components/wizard/step-two").then(mod => ({ default: mod.StepTwo })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepThree = dynamic(() => import("@/components/wizard/step-three").then(mod => ({ default: mod.StepThree })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepFour = dynamic(() => import("@/components/wizard/step-four").then(mod => ({ default: mod.StepFour })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepFive = dynamic(() => import("@/components/wizard/step-five").then(mod => ({ default: mod.StepFive })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepSix = dynamic(() => import("@/components/wizard/step-six").then(mod => ({ default: mod.StepSix })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+const StepSeven = dynamic(() => import("@/components/wizard/step-seven").then(mod => ({ default: mod.StepSeven })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-32 rounded"></div>
+})
+
+// Lazy load preview component with memoization
+const ContractPreview = dynamic(() => import("@/components/contract-preview").then(mod => ({ default: mod.ContractPreview })), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded"></div>,
+  ssr: false
+})
 
 const steps = [
   { id: 1, title: "Contract Type", description: "Choose the type of contract" },
@@ -30,15 +52,15 @@ const steps = [
 ]
 
 const pageVariants = {
-  initial: { opacity: 0, x: 20 },
-  in: { opacity: 1, x: 0 },
-  out: { opacity: 0, x: -20 },
+  initial: { opacity: 0, y: 10 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -10 },
 }
 
-const pageTransition: Transition = {
-  type: "tween",
-  ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
-  duration: 0.4,
+const pageTransition = {
+  type: "tween" as const,
+  ease: "easeInOut" as const,
+  duration: 0.15,
 }
 
 export default function WizardPage() {
@@ -82,7 +104,7 @@ export default function WizardPage() {
     }
   }, [contractType, contractId, updateContract, loadContract, clauses, resetContract, agency, defaultAgency.name, defaultAgency.email])
 
-  const nextStep = async () => {
+  const nextStep = React.useCallback(async () => {
     // Auto-save the contract as draft when moving to step 4, 5, 6, or 7
     if (currentStep >= 4) {
       try {
@@ -99,17 +121,17 @@ export default function WizardPage() {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1)
     }
-  }
+  }, [currentStep, setCurrentStep])
 
-  const prevStep = () => {
+  const prevStep = React.useCallback(() => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
-  }
+  }, [currentStep, setCurrentStep])
 
   const progress = (currentStep / steps.length) * 100
 
-  const renderStep = () => {
+  const renderStep = React.useMemo(() => {
     switch (currentStep) {
       case 1:
         return <StepOne />
@@ -128,18 +150,13 @@ export default function WizardPage() {
       default:
         return <StepOne />
     }
-  }
+  }, [currentStep])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
       <div className="container mx-auto p-4 sm:p-6 max-w-full">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-6 sm:mb-8"
-        >
+        <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 sm:w-10 h-8 sm:h-10 bg-primary rounded-lg flex items-center justify-center">
               {currentContract.type === "client" ? (
@@ -166,20 +183,15 @@ export default function WizardPage() {
             </div>
             <Progress value={progress} className="h-2" />
           </div>
-        </motion.div>
+        </div>
 
         {/* Steps Navigation */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-6 sm:mb-8"
-        >
+        <div className="mb-6 sm:mb-8">
           <div className="flex flex-wrap gap-2 sm:gap-4">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
-                  className={`flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${
+                  className={`flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full text-xs sm:text-sm font-medium transition-colors duration-150 ${
                     step.id <= currentStep
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "bg-muted text-muted-foreground"
@@ -189,7 +201,7 @@ export default function WizardPage() {
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`w-8 sm:w-12 h-0.5 mx-1 sm:mx-2 transition-all duration-300 ${
+                    className={`w-8 sm:w-12 h-0.5 mx-1 sm:mx-2 transition-colors duration-150 ${
                       step.id < currentStep ? "bg-primary" : "bg-muted"
                     }`}
                   />
@@ -197,16 +209,12 @@ export default function WizardPage() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
           {/* Form Section */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
+          <div>
             <Card className="shadow-md border-0 min-h-[48px] max-w-full w-full">
               <CardHeader>
                 <CardTitle className="text-lg sm:text-xl">{steps[currentStep - 1]?.title}</CardTitle>
@@ -223,7 +231,7 @@ export default function WizardPage() {
                     transition={pageTransition}
                     className="max-w-full"
                   >
-                    {renderStep()}
+                    {renderStep}
                   </motion.div>
                 </AnimatePresence>
 
@@ -251,24 +259,22 @@ export default function WizardPage() {
                 )}
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
 
           {/* Preview Section */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
+          <div>
             <Card className="shadow-md border-0 min-h-[48px] max-w-full w-full h-full">
               <CardHeader>
                 <CardTitle className="text-lg sm:text-xl">Live Preview</CardTitle>
                 <CardDescription className="text-sm">See your contract update in real-time</CardDescription>
               </CardHeader>
               <CardContent className="max-w-full">
-                <ContractPreview contract={currentContract} agency={agency || defaultAgency} />
+                <React.Suspense fallback={<div className="animate-pulse bg-gray-200 h-96 rounded"></div>}>
+                  <ContractPreview contract={currentContract} agency={agency || defaultAgency} />
+                </React.Suspense>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import { motion, AnimatePresence } from "framer-motion"
 import { Upload, PenTool, CheckCircle, Download, FileText, User, Edit3, RotateCcw, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,13 +12,15 @@ import { useContractStore } from "@/store/contract-store"
 import { useClientStore } from "@/store/client-store"
 import { useAuthStore } from "@/store/auth-store"
 import { useParams } from "next/navigation"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { toast } from "sonner"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 import { ContractPreview } from "@/components/contract-preview"
 import { usePWAInstall } from "@/hooks/use-pwa-install"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import dynamic from "next/dynamic"
+
+// Import PDF generation utility
+import { generatePDF } from "@/components/pdf-generator"
 
 export default function ClientContractPage() {
   const params = useParams()
@@ -38,7 +39,6 @@ export default function ClientContractPage() {
     isContractSigned
   } = useClientStore()
   const { agency, checkAuth, isAuthenticated } = useAuthStore()
-  console.log("Agency value in ClientContractPage:", agency)
   
   const [contract, setContract] = useState<any>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -249,79 +249,21 @@ export default function ClientContractPage() {
     }
   }
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     if (isDownloading) return
     
-    setIsDownloading(true)
-    toast.loading("Generating PDF...", { id: "download" })
-    
-    try {
-      const input = document.querySelector('.contract-preview-container') as HTMLElement | null
-      if (!input) {
-        toast.error("Contract preview not found", { id: "download" })
-        return
-      }
-      
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        allowTaint: true,
-        height: input.scrollHeight,
-        width: input.scrollWidth
-      })
-      
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210
-      const pageHeight = 297
-      const imgHeight = canvas.height * imgWidth / canvas.width
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
-      }
-      
-      const fileName = `contract-${contract?.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contractId}.pdf`
-      pdf.save(fileName)
-      
-      toast.success("PDF downloaded successfully!", { id: "download" })
-    } catch (error) {
-      console.error("Error generating PDF:", error)
-      toast.error("Failed to generate PDF", { 
-        id: "download",
-        description: "Please try again"
-      })
-    } finally {
-      setIsDownloading(false)
-    }
-  }
+    await generatePDF(contractId, contract?.projectTitle, setIsDownloading)
+  }, [isDownloading, contractId, contract?.projectTitle])
 
   // Show loading while hydrating or loading contract
   if (!isHydrated || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 flex items-center justify-center">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading contract...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm">Loading contract...</p>
           {showInstallPrompt && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4"
-            >
+            <div className="mt-4">
               <Button 
                 onClick={handleInstallApp}
                 variant="outline" 
@@ -331,30 +273,26 @@ export default function ClientContractPage() {
                 <Smartphone className="h-3 w-3 mr-2" />
                 Install App
               </Button>
-            </motion.div>
+            </div>
           )}
-        </motion.div>
+        </div>
       </div>
     )
   }
 
   if (!contract) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-950/20 dark:to-pink-950/20 flex items-center justify-center p-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md"
-        >
-          <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Contract Not Found</h1>
-          <p className="text-muted-foreground mb-6">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-xl font-bold mb-2">Contract Not Found</h1>
+          <p className="text-muted-foreground mb-6 text-sm">
             The contract you're looking for doesn't exist or has been removed.
           </p>
           <div className="text-xs text-muted-foreground">
             Contract ID: {contractId}
           </div>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -393,22 +331,12 @@ export default function ClientContractPage() {
           </div>
         </div>
 
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-4xl w-full mx-auto p-6"
-        >
+        <div className="max-w-4xl w-full mx-auto p-6">
           <Card className="shadow-xl border-0 backdrop-blur-sm bg-white/90 dark:bg-gray-800/90">
             <CardContent className="text-center py-8">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-6"
-              >
+              <div className="w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
-              </motion.div>
+              </div>
               <h1 className="text-2xl font-bold mb-2">Contract Signed Successfully!</h1>
               <p className="text-muted-foreground mb-6">
                 Thank you for signing the contract. Both parties will receive a copy via email.
@@ -457,25 +385,15 @@ export default function ClientContractPage() {
           </Card>
 
           {/* Contract Preview */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 max-w-4xl mx-auto"
-          >
+          <div className="mt-6 max-w-4xl mx-auto">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 contract-preview-container">
               {contract && agency && <ContractPreview contract={contract} agency={agency} />}
             </div>
-          </motion.div>
+          </div>
 
           {/* Install App Prompt */}
           {showInstallPrompt && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="mt-6 text-center"
-            >
+            <div className="mt-6 text-center">
               <div className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-lg p-4 border">
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-3">
                   <Smartphone className="h-4 w-4" />
@@ -494,7 +412,7 @@ export default function ClientContractPage() {
                   Quick access to all your contracts
                 </p>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* Client Footer */}
@@ -507,7 +425,7 @@ export default function ClientContractPage() {
               Product by <span className="font-semibold text-primary">Drimin AI</span>
             </p>
           </div>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -550,12 +468,7 @@ export default function ClientContractPage() {
       <div className="container mx-auto p-6">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Contract Preview */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-4xl"
-          >
+          <div className="max-w-4xl">
             <Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
               <CardHeader>
                 <CardTitle>Contract Details</CardTitle>
@@ -566,15 +479,10 @@ export default function ClientContractPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
 
           {/* Signing Section */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="space-y-6"
-          >
+          <div className="space-y-6">
             {/* Client Information */}
             <Card className="shadow-lg border-0">
               <CardHeader>
@@ -638,12 +546,7 @@ export default function ClientContractPage() {
                 </div>
 
                 {signatureMethod === "draw" && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-3"
-                  >
+                  <div className="space-y-3">
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                       <canvas
                         ref={canvasRef}
@@ -659,16 +562,11 @@ export default function ClientContractPage() {
                     <Button onClick={clearSignature} variant="outline" size="sm" className="bg-transparent">
                       Clear Signature
                     </Button>
-                  </motion.div>
+                  </div>
                 )}
 
                 {signatureMethod === "upload" && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-3"
-                  >
+                  <div className="space-y-3">
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mb-2">Upload your signature image</p>
@@ -680,7 +578,7 @@ export default function ClientContractPage() {
                         className="max-w-xs mx-auto"
                       />
                     </div>
-                  </motion.div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -713,7 +611,7 @@ export default function ClientContractPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         </div>
       </div>
 

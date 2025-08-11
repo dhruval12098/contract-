@@ -1,50 +1,28 @@
 "use client"
 
-import { motion, Variants } from "framer-motion"
+import React from "react"
 import { FileText, Users } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useContractStore } from "@/store/contract-store"
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-}
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.4,
-      ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number], // Explicitly type as a tuple
-    },
-  },
-}
-
 export function StepOne() {
   const { currentContract, updateContract } = useContractStore()
 
-  const selectType = (type: "client" | "hiring") => {
+  const selectType = React.useCallback((type: "client" | "hiring") => {
     updateContract({ type, projectTitle: type === "client" ? "Contract Header" : "" })
-  }
+  }, [updateContract])
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div variants={itemVariants}>
+    <div className="space-y-6">
+      <div>
         <h3 className="text-lg font-semibold mb-2">What type of contract do you need?</h3>
         <p className="text-muted-foreground mb-6">Choose the contract type that best fits your needs.</p>
-      </motion.div>
+      </div>
 
       <div className="grid gap-4">
-        <motion.div variants={itemVariants}>
+        <div>
           <Card
-            className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+            className={`cursor-pointer transition-colors duration-150 hover:shadow-lg ${
               currentContract.type === "client" ? "ring-2 ring-primary shadow-lg bg-primary/5" : "hover:bg-accent/50"
             }`}
             onClick={() => selectType("client")}
@@ -66,11 +44,11 @@ export function StepOne() {
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        <div>
           <Card
-            className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+            className={`cursor-pointer transition-colors duration-150 hover:shadow-lg ${
               currentContract.type === "hiring" ? "ring-2 ring-primary shadow-lg bg-primary/5" : "hover:bg-accent/50"
             }`}
             onClick={() => selectType("hiring")}
@@ -92,8 +70,8 @@ export function StepOne() {
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

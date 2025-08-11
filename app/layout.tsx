@@ -65,10 +65,10 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased`}>
         <ErrorBoundary>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange forcedTheme="light">
             <CommandPaletteProvider>
               <AuthInitializer />
-               <Toaster />
+               <Toaster position="top-right" />
                <AuthLayoutWrapper>{children}</AuthLayoutWrapper>
             </CommandPaletteProvider>
           </ThemeProvider>

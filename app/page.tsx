@@ -1,10 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { motion } from "framer-motion"
-import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle } from "lucide-react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
+import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle, MoreHorizontal } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
@@ -14,8 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useContractStore } from "@/store/contract-store"
-import { useEffect, useRef, useState } from "react"
-import { ContractPreview } from "@/components/contract-preview"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { Agency } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
 import { toast } from "sonner"
@@ -43,9 +39,6 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const { isAuthenticated, checkAuth, agency, isHydrated } = useAuthStore()
 
-  const contractPreviewRef = useRef<HTMLDivElement>(null)
-  const [contractToDownload, setContractToDownload] = useState<ContractData | null>(null)
-
   // Check authentication on component mount
   useEffect(() => {
     checkAuth()
@@ -58,67 +51,33 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, loadContracts])
 
-  // Effect to trigger PDF generation when contractToDownload is set
-  useEffect(() => {
-    const generatePdf = async () => {
-      if (contractToDownload && contractPreviewRef.current && agency) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        const input = contractPreviewRef.current
-        if (input) {
-          const canvas = await html2canvas(input, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            onclone: (clonedDoc) => {
-              const elem = clonedDoc.getElementById('contract-preview-content')
-              if (elem) {
-                elem.style.position = 'static'
-                elem.style.left = '0px'
-                elem.style.top = '0px'
-                elem.style.visibility = 'visible'
-              }
-            },
-          })
-          const imgData = canvas.toDataURL('image/png')
-          const pdf = new jsPDF('p', 'mm', 'a4')
-          const imgWidth = 210
-          const pageHeight = 297
-          const imgHeight = canvas.height * imgWidth / canvas.width
-          let heightLeft = imgHeight
-          let position = 0
-
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-          heightLeft -= pageHeight
-
-          while (heightLeft >= 0) {
-            position = heightLeft - imgHeight
-            pdf.addPage()
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-            heightLeft -= pageHeight
-          }
-          pdf.save(`contract-${contractToDownload.id ?? 'unknown'}.pdf`)
-        }
-        setContractToDownload(null)
-      }
-    }
-    generatePdf()
-  }, [contractToDownload, agency])
-
-  // Filter contracts with error handling
-  const filteredContracts = contracts.filter((contract: ContractData) => {
+  // Optimized PDF generation function
+  const generatePdf = useCallback(async (contract: ContractData) => {
+    if (!agency) return
+    
+    toast.loading("Generating PDF...", { id: "pdf-gen" })
+    
     try {
-      const matchesSearch =
+      const { generatePDF } = await import("@/components/pdf-generator")
+      await generatePDF(contract.id || 'unknown', contract.projectTitle, () => {})
+      toast.success("PDF generated successfully!", { id: "pdf-gen" })
+    } catch (error) {
+      toast.error("Failed to generate PDF", { id: "pdf-gen" })
+    }
+  }, [agency])
+
+  // Optimized filtering and stats with useMemo
+  const filteredContracts = useMemo(() => {
+    return contracts.filter((contract: ContractData) => {
+      const matchesSearch = searchTerm === "" || 
         (contract.projectTitle || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (contract.clientName || "").toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || contract.status === statusFilter
       return matchesSearch && matchesStatus
-    } catch (error) {
-      console.error("Error filtering contract:", error)
-      return false
-    }
-  })
+    })
+  }, [contracts, searchTerm, statusFilter])
 
-  const stats = React.useMemo(() => {
+  const stats = useMemo(() => {
     const total = contracts.length
     const draft = contracts.filter((c: ContractData) => c.status === "draft").length
     const signed = contracts.filter((c: ContractData) => c.status === "signed").length
@@ -142,228 +101,211 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Contracts</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-        </motion.div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Contracts</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Draft</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.draft}</div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Draft</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.draft}</div>
+          </CardContent>
+        </Card>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Signed</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.signed}</div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Signed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.signed}</div>
+          </CardContent>
+        </Card>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.completed}</div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.completed}</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Contracts Table */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Contracts</CardTitle>
-                <CardDescription>Manage and track all your contracts in one place</CardDescription>
-              </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Contracts</CardTitle>
+              <CardDescription>Manage and track all your contracts in one place</CardDescription>
+            </div>
+            <Button asChild>
+              <a href="/wizard">
+                <Plus className="mr-2 h-4 w-4" />
+                New Contract
+              </a>
+            </Button>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex items-center space-x-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search contracts..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Status: {statusFilter === "all" ? "All" : statusFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>All</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("review")}>Review</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("signed")}>Signed</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("completed")}>Completed</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading contracts...</p>
+            </div>
+          ) : filteredContracts.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No contracts found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || statusFilter !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "Get started by creating your first contract"}
+              </p>
               <Button asChild>
                 <a href="/wizard">
                   <Plus className="mr-2 h-4 w-4" />
-                  New Contract
+                  Create Contract
                 </a>
               </Button>
             </div>
-
-            {/* Search and Filter */}
-            <div className="flex items-center space-x-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search contracts..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <Filter className="mr-2 h-4 w-4" />
-                    Status: {statusFilter === "all" ? "All" : statusFilter}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setStatusFilter("all")}>All</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("review")}>Review</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("signed")}>Signed</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setStatusFilter("completed")}>Completed</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading contracts...</p>
-              </div>
-            ) : filteredContracts.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No contracts found</h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || statusFilter !== "all"
-                    ? "Try adjusting your search or filter criteria"
-                    : "Get started by creating your first contract"}
-                </p>
-                <Button asChild>
-                  <a href="/wizard">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Contract
-                  </a>
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden sm:table-cell">Status</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead className="hidden sm:table-cell">Project</TableHead>
-                    <TableHead className="hidden sm:table-cell">Created</TableHead>
-                    <TableHead className="hidden sm:table-cell">Shareable Link</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredContracts.map((contract: ContractData) => {
-                    const StatusIcon = statusIcons[contract.status as Status]
-                    return (
-                      <TableRow key={contract.id ?? ''}>
-                        <TableCell className="hidden sm:table-cell">
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead className="hidden sm:table-cell">Project</TableHead>
+                  <TableHead className="hidden sm:table-cell">Created</TableHead>
+                  <TableHead className="hidden sm:table-cell">Shareable Link</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredContracts.map((contract: ContractData) => {
+                  const StatusIcon = statusIcons[contract.status as Status]
+                  return (
+                    <TableRow key={contract.id ?? ''}>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className="h-4 w-4" />
+                          <Badge variant="outline" className={statusColors[contract.status as Status]}>
+                            {contract.status}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>{contract.clientName}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{contract.projectTitle}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {contract.shareableLink ? (
                           <div className="flex items-center gap-2">
-                            <StatusIcon className="h-4 w-4" />
-                            <Badge variant="outline" className={statusColors[contract.status as Status]}>
-                              {contract.status}
-                            </Badge>
+                            <a
+                              href={contract.shareableLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline truncate max-w-xs"
+                              title={contract.shareableLink}
+                            >
+                              {contract.shareableLink}
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(contract.shareableLink!)
+                                toast.success("Link copied to clipboard!")
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </TableCell>
-                        <TableCell>{contract.clientName}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{contract.projectTitle}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {contract.shareableLink ? (
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={contract.shareableLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline truncate max-w-xs"
-                                title={contract.shareableLink}
-                              >
-                                {contract.shareableLink}
-                              </a>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(contract.shareableLink!)
-                                  toast.success("Link copied to clipboard!")
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Not generated</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                View/Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setContractToDownload(contract)}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => contract.id && deleteContract(contract.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
-        {contractToDownload && agency && (
-          <div id="contract-preview-content" ref={contractPreviewRef} style={{ visibility: 'hidden' }}>
-            <ContractPreview contract={contractToDownload} agency={agency} />
-          </div>
-        )}
-      </div>
+                        ) : (
+                          <span className="text-muted-foreground">Not generated</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              View/Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generatePdf(contract)}>
+                              <Download className="mr-2 h-4 w-4" />
+                              Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => contract.id && deleteContract(contract.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
