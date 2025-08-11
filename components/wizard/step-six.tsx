@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { useContractStore } from "@/store/contract-store"
 import { useState, useRef } from "react"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
-// Explicitly define the Variants type
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
@@ -28,22 +28,28 @@ const itemVariants: Variants = {
     y: 0,
     transition: {
       duration: 0.4,
-      ease: "easeOut", // Valid easing string
+      ease: "easeOut",
     },
   },
 }
 
 export function StepSix() {
-  const { currentContract, saveContract, signAsAgency } = useContractStore()
+  const { currentContract, saveContract, signAsAgency, resetAgencySignature, setCurrentStep } = useContractStore()
   const [isDrawing, setIsDrawing] = useState(false)
   const [showSignature, setShowSignature] = useState(false)
   const [signatureMethod, setSignatureMethod] = useState<"draw" | "upload" | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
-  const handleSaveContract = () => {
-    saveContract()
-    toast.success("Contract saved successfully!")
+  const handleSaveContract = async () => {
+    const { success, error } = await saveContract()
+    if (success) {
+      toast.success("Contract saved successfully!")
+      router.push("/contract/step-seven") // Navigate to next step
+    } else {
+      toast.error(error || "Failed to save contract")
+    }
   }
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -93,23 +99,56 @@ export function StepSix() {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const imageData = event.target?.result as string
-        signAsAgency(imageData)
-        setShowSignature(false)
-        toast.success("Signature uploaded successfully!")
+        const { success, error } = await signAsAgency(imageData)
+        if (success) {
+          setShowSignature(false)
+          toast.success("Signature uploaded successfully!")
+        } else {
+          toast.error(error || "Failed to upload signature")
+        }
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const saveDrawnSignature = () => {
+  const saveDrawnSignature = async () => {
     const canvas = canvasRef.current
     if (canvas) {
       const signatureData = canvas.toDataURL()
-      signAsAgency(signatureData)
-      setShowSignature(false)
-      toast.success("Signature saved successfully!")
+      const { success, error } = await signAsAgency(signatureData)
+      if (success) {
+        setShowSignature(false)
+        toast.success("Signature saved successfully!")
+      } else {
+        toast.error(error || "Failed to save signature")
+      }
+    }
+  }
+
+  const handleEditDetails = async () => {
+    const { success, error } = await resetAgencySignature()
+    if (success) {
+      setShowSignature(true)
+      setSignatureMethod(null)
+      clearSignature()
+      setCurrentStep(1) // Navigate to first step for editing details
+      toast.info("Signature cleared. You can now edit contract details and re-sign.")
+    } else {
+      toast.error(error || "Failed to reset signature")
+    }
+  }
+
+  const handleEditSignature = async () => {
+    const { success, error } = await resetAgencySignature()
+    if (success) {
+      setShowSignature(true)
+      setSignatureMethod(null)
+      clearSignature()
+      toast.info("Signature cleared. You can now re-sign the contract.")
+    } else {
+      toast.error(error || "Failed to reset signature")
     }
   }
 
@@ -193,6 +232,10 @@ export function StepSix() {
                     className="max-w-xs max-h-24 object-contain"
                   />
                 </div>
+                <Button onClick={handleEditSignature} variant="outline" className="w-full">
+                  <PenTool className="mr-2 h-4 w-4" />
+                  Edit Signature
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -206,7 +249,6 @@ export function StepSix() {
                   </Button>
                 ) : (
                   <div className="space-y-4">
-                    {/* Signature Method Selection */}
                     <div className="grid grid-cols-2 gap-3">
                       <Button
                         variant={signatureMethod === "draw" ? "default" : "outline"}
@@ -225,8 +267,6 @@ export function StepSix() {
                         <span className="text-sm">Upload Image</span>
                       </Button>
                     </div>
-
-                    {/* Draw Signature */}
                     {signatureMethod === "draw" && (
                       <div className="space-y-3">
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
@@ -251,8 +291,6 @@ export function StepSix() {
                         </div>
                       </div>
                     )}
-
-                    {/* Upload Signature */}
                     {signatureMethod === "upload" && (
                       <div className="space-y-3">
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -269,7 +307,6 @@ export function StepSix() {
                         </div>
                       </div>
                     )}
-
                     <Button onClick={() => setShowSignature(false)} variant="outline" size="sm" className="w-full">
                       <X className="mr-2 h-4 w-4" />
                       Cancel
@@ -284,9 +321,9 @@ export function StepSix() {
 
       {/* Action Buttons */}
       <motion.div variants={itemVariants} className="flex gap-3">
-        <Button variant="outline" className="flex-1 bg-transparent">
+        <Button onClick={handleEditDetails} variant="outline" className="flex-1 bg-transparent">
           <Edit className="mr-2 h-4 w-4" />
-          Edit Details
+          Edit Details & Signature
         </Button>
         <Button
           onClick={handleSaveContract}

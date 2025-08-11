@@ -22,7 +22,7 @@ export interface ContractData {
   paymentTerms: string
   startDate: string
   endDate: string
-  clauses: CustomClause[] // Changed from string[] to CustomClause[]
+  clauses: CustomClause[]
   status: "draft" | "review" | "signed" | "completed"
   createdAt: string
   updatedAt: string
@@ -53,6 +53,7 @@ interface ContractStore {
   signAsAgency: (signature: string) => Promise<{ success: boolean; error?: string }>
   signAsClient: (signature: string, contractId?: string) => Promise<{ success: boolean; error?: string }>
   generateShareableLink: (contractId?: string) => string
+  resetAgencySignature: () => Promise<{ success: boolean; error?: string }>
 }
 
 // Fix the initial contract to ensure proper structure
@@ -69,7 +70,7 @@ const initialContract: ContractData = {
   paymentTerms: "",
   startDate: "",
   endDate: "",
-  clauses: [], // Ensure this is always an array of CustomClause objects
+  clauses: [],
   status: "draft",
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -340,12 +341,12 @@ export const useContractStore = create<ContractStore>()(
             agencyEmail: item.agency_email,
             projectTitle: item.project_title,
             projectDescription: item.project_description,
-            scope: [], // Will be loaded separately if needed
+            scope: [],
             paymentAmount: item.payment_amount,
             paymentTerms: item.payment_terms,
             startDate: item.start_date,
             endDate: item.end_date,
-            clauses: [], // Will be loaded separately if needed
+            clauses: [],
             status: item.status as "draft" | "review" | "signed" | "completed",
             createdAt: item.created_at,
             updatedAt: item.updated_at,
@@ -371,10 +372,9 @@ export const useContractStore = create<ContractStore>()(
       resetContract: () => {
         const freshContract: ContractData = {
           ...initialContract,
-          id: undefined, // Will be generated when saved
+          id: undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          // Ensure all signature fields are cleared
           agencySignature: undefined,
           agencySignedAt: undefined,
           clientSignature: undefined,
@@ -399,10 +399,10 @@ export const useContractStore = create<ContractStore>()(
 
           const newContract: ContractData = {
             ...contractToDuplicate,
-            id: Date.now().toString(), // Generate a new unique ID
+            id: Date.now().toString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            status: "draft", // Reset status for duplicated contract
+            status: "draft",
             agencySignature: undefined,
             agencySignedAt: undefined,
             clientSignature: undefined,
@@ -495,7 +495,6 @@ export const useContractStore = create<ContractStore>()(
               status: "signed",
               updatedAt: new Date().toISOString(),
             },
-            // Also update in contracts array if it exists
             contracts: state.contracts.map(contract => 
               contract.id === idToUse 
                 ? {
@@ -531,7 +530,6 @@ export const useContractStore = create<ContractStore>()(
           }
           return {
             currentContract: updatedCurrentContract,
-            // Also update in contracts array if it exists
             contracts: state.contracts.map(contract => 
               contract.id === contractId
                 ? { ...contract, shareableLink, updatedAt: new Date().toISOString() }
@@ -541,6 +539,53 @@ export const useContractStore = create<ContractStore>()(
         });
 
         return shareableLink;
+      },
+
+      resetAgencySignature: async () => {
+        try {
+          const state = get()
+
+          // Update in Supabase
+          const { error } = await supabase
+            .from('contracts')
+            .update({
+              agency_signature: null,
+              agency_signed_at: null,
+              status: state.currentContract.clientSignature ? "signed" : "draft",
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', state.currentContract.id)
+
+          if (error) {
+            return { success: false, error: error.message }
+          }
+
+          // Update local state
+          set((state) => ({
+            currentContract: {
+              ...state.currentContract,
+              agencySignature: undefined,
+              agencySignedAt: undefined,
+              status: state.currentContract.clientSignature ? "signed" : "draft",
+              updatedAt: new Date().toISOString(),
+            },
+            contracts: state.contracts.map(contract =>
+              contract.id === state.currentContract.id
+                ? {
+                    ...contract,
+                    agencySignature: undefined,
+                    agencySignedAt: undefined,
+                    status: contract.clientSignature ? "signed" : "draft",
+                    updatedAt: new Date().toISOString(),
+                  }
+                : contract
+            ),
+          }))
+
+          return { success: true }
+        } catch (error) {
+          return { success: false, error: (error as Error).message }
+        }
       },
     }),
     {
