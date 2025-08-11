@@ -1,9 +1,10 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Download, Share, FileText, CheckCircle, ExternalLink } from "lucide-react"
+import { Download, Share, FileText, CheckCircle, ExternalLink, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { useContractStore } from "@/store/contract-store"
 import { useState } from "react"
 import Link from "next/link"
@@ -25,8 +26,9 @@ const itemVariants = {
 }
 
 export function StepSeven() {
-  const { currentContract, saveContract } = useContractStore()
+  const { currentContract, saveContract, generateShareableLink } = useContractStore()
   const [isSaving, setIsSaving] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
 
   const handleDownload = () => {
     window.print()
@@ -42,9 +44,21 @@ export function StepSeven() {
         return
       }
 
-      toast.error("Failed to generate link")
+      // Generate the shareable link using the store's function
+      const shareLink = generateShareableLink()
+      setGeneratedLink(shareLink)
+      toast.success("Link generated successfully!")
+    } catch (error) {
+      toast.error("Failed to generate link: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleCopyLink = () => {
+    if (generatedLink) {
+      navigator.clipboard.writeText(generatedLink)
+      toast.success("Link copied to clipboard!")
     }
   }
 
@@ -52,21 +66,15 @@ export function StepSeven() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div
-        variants={itemVariants}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-      >
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }}>
         <h3 className="text-lg font-semibold mb-2">Share & Export</h3>
         <p className="text-muted-foreground mb-6">
-          Generate a secure link to share with your client or download the contract for your records.
+          Generate a secure link to share with your recipient or download the contract for your records.
         </p>
       </motion.div>
 
       {/* Download Section */}
-      <motion.div
-        variants={itemVariants}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-      >
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }}>
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -94,78 +102,78 @@ export function StepSeven() {
         </Card>
       </motion.div>
 
-      {/* Share with Client Section */}
-      <motion.div
-        variants={itemVariants}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-      >
+      {/* Share with Recipient Section */}
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }}>
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Share className="h-4 w-4" />
-              Share with Client
+              Share with Recipient
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Generate a secure link that allows your client to view and sign the contract.
+              Generate a secure link that allows your recipient to view and sign the contract.
             </p>
+            <Button
+              onClick={handleGenerateLink}
+              disabled={isSaving || !!generatedLink}
+              className="w-full shadow-md hover:shadow-lg transition-shadow"
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving & Generating...
+                </>
+              ) : (
+                <>
+                  <Share className="mr-2 h-4 w-4" />
+                  Generate Share Link
+                </>
+              )}
+            </Button>
 
-            <div className="space-y-4">
-                <Button 
-                  onClick={handleGenerateLink} 
-                  disabled={isSaving}
-                  className="w-full shadow-md hover:shadow-lg transition-shadow"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving & Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Share className="mr-2 h-4 w-4" />
-                      Generate Client Link
-                    </>
-                  )}
-                </Button>
-                
-                {/* Complete without generating link */}
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Or complete the contract creation without generating a client link:
-                  </p>
-                  <Button asChild variant="outline" className="w-full bg-transparent">
-                    <Link href="/dashboard">
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Complete & Go to Dashboard
+            {generatedLink && (
+              <div className="space-y-3 pt-4 border-t">
+                <p className="text-sm font-medium">Generated Share Link:</p>
+                <div className="flex items-center gap-2">
+                  <Input value={generatedLink} readOnly className="flex-1" />
+                  <Button onClick={handleCopyLink} variant="outline" size="icon">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-3">
+                  <Button asChild className="flex-1 shadow-md hover:shadow-lg transition-shadow">
+                    <Link href={generatedLink} target="_blank">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Signing Link
                     </Link>
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  This link redirects to the signing page for your recipient.
+                </p>
               </div>
+            )}
 
-              <div className="flex gap-3">
-                <Button onClick={handleDownload} className="shadow-md hover:shadow-lg transition-shadow">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Download PDF
-                </Button>
-                <Button asChild variant="outline" className="bg-transparent">
-                  <Link href={`/contract/${contractId}`} target="_blank">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Preview Contract
-                  </Link>
-                </Button>
-              </div>
+            {/* Complete without generating link */}
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground mb-3">
+                Or complete the contract creation without generating a link:
+              </p>
+              <Button asChild variant="outline" className="w-full bg-transparent">
+                <Link href="/dashboard">
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Complete & Go to Dashboard
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
       {/* Branding Footer */}
-      <motion.div
-        variants={itemVariants}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="text-center pt-4 border-t"
-      >
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }} className="text-center pt-4 border-t">
         <p className="text-xs text-muted-foreground">
           Product by <span className="font-semibold text-primary">Drimin AI</span>
         </p>

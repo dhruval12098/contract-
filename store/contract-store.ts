@@ -52,7 +52,7 @@ interface ContractStore {
   duplicateContract: (id: string) => Promise<{ success: boolean; error?: string }>
   signAsAgency: (signature: string) => Promise<{ success: boolean; error?: string }>
   signAsClient: (signature: string, contractId?: string) => Promise<{ success: boolean; error?: string }>
-  generateShareableLink: () => string
+  generateShareableLink: (contractId?: string) => string
 }
 
 // Fix the initial contract to ensure proper structure
@@ -515,20 +515,32 @@ export const useContractStore = create<ContractStore>()(
         }
       },
 
-      generateShareableLink: () => {
-        const contractId = get().currentContract.id || Date.now().toString()
+      generateShareableLink: (idToLink?: string) => {
+        const contractId = idToLink || get().currentContract.id || Date.now().toString()
         const shareableLink = `${window.location.origin}/client/contract/${contractId}`
 
-        set((state) => ({
-          currentContract: {
-            ...state.currentContract,
-            id: contractId,
-            shareableLink,
-            updatedAt: new Date().toISOString(),
-          },
-        }))
+        // Update the current contract's shareable link if it's the one being linked
+        set((state) => {
+          let updatedCurrentContract = state.currentContract;
+          if (updatedCurrentContract.id === contractId) {
+            updatedCurrentContract = {
+              ...updatedCurrentContract,
+              shareableLink,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return {
+            currentContract: updatedCurrentContract,
+            // Also update in contracts array if it exists
+            contracts: state.contracts.map(contract => 
+              contract.id === contractId
+                ? { ...contract, shareableLink, updatedAt: new Date().toISOString() }
+                : contract
+            ),
+          };
+        });
 
-        return shareableLink
+        return shareableLink;
       },
     }),
     {

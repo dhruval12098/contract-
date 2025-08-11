@@ -266,11 +266,11 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead>Client</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Shareable Link</TableHead>
+                    <TableHead className="hidden sm:table-cell">Project</TableHead>
+                    <TableHead className="hidden sm:table-cell">Created</TableHead>
+                    <TableHead className="hidden sm:table-cell">Shareable Link</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                     const StatusIcon = statusIcons[contract.status as Status]
                     return (
                       <TableRow key={contract.id ?? ''}>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <div className="flex items-center gap-2">
                             <StatusIcon className="h-4 w-4" />
                             <Badge variant="outline" className={statusColors[contract.status as Status]}>
@@ -288,9 +288,9 @@ export default function DashboardPage() {
                           </div>
                         </TableCell>
                         <TableCell>{contract.clientName}</TableCell>
-                        <TableCell>{contract.projectTitle}</TableCell>
-                        <TableCell>{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">{contract.projectTitle}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           {contract.shareableLink ? (
                             <div className="flex items-center gap-2">
                               <a

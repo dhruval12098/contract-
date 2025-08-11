@@ -10,12 +10,13 @@ interface ClientStore {
   
   // UI state
   signatureMethod: "upload" | "draw" | null
-  isSigned: boolean
+  signedContracts: { [contractId: string]: boolean }
   
   // Actions
   setContractSession: (contractId: string, name: string, email: string) => void
   setSignatureMethod: (method: "upload" | "draw" | null) => void
-  setIsSigned: (signed: boolean) => void
+  setContractSigned: (contractId: string, signed: boolean) => void
+  isContractSigned: (contractId: string) => boolean
   clearSession: () => void
   setHydrated: () => void
 }
@@ -28,7 +29,7 @@ export const useClientStore = create<ClientStore>()(
       clientEmail: "",
       isHydrated: false,
       signatureMethod: null,
-      isSigned: false,
+      signedContracts: {},
 
       setContractSession: (contractId, name, email) => {
         set({
@@ -42,8 +43,17 @@ export const useClientStore = create<ClientStore>()(
         set({ signatureMethod: method })
       },
 
-      setIsSigned: (signed) => {
-        set({ isSigned: signed })
+      setContractSigned: (contractId, signed) => {
+        set((state) => ({
+          signedContracts: {
+            ...state.signedContracts,
+            [contractId]: signed,
+          },
+        }))
+      },
+
+      isContractSigned: (contractId) => {
+        return get().signedContracts[contractId] || false
       },
 
       clearSession: () => {
@@ -52,7 +62,7 @@ export const useClientStore = create<ClientStore>()(
           clientName: "",
           clientEmail: "",
           signatureMethod: null,
-          isSigned: false,
+          signedContracts: {},
         })
       },
 
@@ -65,7 +75,7 @@ export const useClientStore = create<ClientStore>()(
         clientName: state.clientName,
         clientEmail: state.clientEmail,
         signatureMethod: state.signatureMethod,
-        isSigned: state.isSigned,
+        signedContracts: state.signedContracts,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated()

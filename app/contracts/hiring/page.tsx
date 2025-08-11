@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useContractStore } from "@/store/contract-store"
+import { toast } from "sonner"
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -36,8 +37,20 @@ const itemVariants: Variants = {
 }
 
 export default function HiringContractsPage() {
-  const { contracts } = useContractStore()
+  const { contracts, generateShareableLink } = useContractStore()
   const [searchTerm, setSearchTerm] = React.useState("")
+
+  const handleGenerateLink = (contractId: string) => {
+    const link = generateShareableLink(contractId);
+    toast.success("Shareable link generated!", {
+      description: link,
+      action: {
+        label: "Copy",
+        onClick: () => navigator.clipboard.writeText(link),
+      },
+    });
+  };
+
 
   const hiringContracts = contracts.filter((contract) => {
     try {
@@ -144,6 +157,7 @@ export default function HiringContractsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem>Duplicate</DropdownMenuItem>
                         <DropdownMenuItem>Download</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGenerateLink(contract.id!)}>Generate Link</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

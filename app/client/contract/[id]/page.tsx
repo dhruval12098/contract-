@@ -30,11 +30,12 @@ export default function ClientContractPage() {
     clientName, 
     clientEmail, 
     signatureMethod, 
-    isSigned, 
+    signedContracts,
     isHydrated,
     setContractSession, 
     setSignatureMethod, 
-    setIsSigned 
+    setContractSigned,
+    isContractSigned
   } = useClientStore()
   const { agency, checkAuth, isAuthenticated } = useAuthStore()
   console.log("Agency value in ClientContractPage:", agency)
@@ -78,9 +79,9 @@ export default function ClientContractPage() {
             setSignerName(clientName || safeContract.clientName || "")
             setSignerEmail(clientEmail || safeContract.clientEmail || "")
             
-            // Check if already signed
-            const alreadySigned = !!safeContract.clientSignature || isSigned
-            setIsSigned(alreadySigned)
+            // Check if already signed - ONLY trust database data
+            const alreadySigned = !!safeContract.clientSignature
+            setContractSigned(contractId, alreadySigned)
             
             if (alreadySigned) {
               toast.success("Contract already signed", {
@@ -104,7 +105,7 @@ export default function ClientContractPage() {
     }
 
     loadContractData()
-  }, [contractId, isHydrated, loadContract, setContractSession, clientName, clientEmail, isSigned, setIsSigned])
+  }, [contractId, isHydrated, loadContract, setContractSession, clientName, clientEmail, setContractSigned])
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true)
@@ -173,7 +174,7 @@ export default function ClientContractPage() {
               clientSignedAt: new Date().toISOString(),
               status: "signed"
             }))
-            setIsSigned(true)
+            setContractSigned(contractId, true)
             toast.success("Contract signed successfully!", {
               description: "Your signature has been saved and the agency has been notified."
             })
@@ -213,7 +214,7 @@ export default function ClientContractPage() {
               clientSignedAt: new Date().toISOString(),
               status: "signed"
             }))
-            setIsSigned(true)
+            setContractSigned(contractId, true)
             toast.success("Contract signed successfully!", {
               description: "Your signature has been saved and the agency has been notified."
             })
@@ -231,7 +232,7 @@ export default function ClientContractPage() {
 
   const handleEditSignature = () => {
     setShowEditSignature(true)
-    setIsSigned(false)
+    setContractSigned(contractId, false)
     setSignatureMethod(null)
     clearSignature()
     if (fileInputRef.current) {
@@ -266,6 +267,9 @@ export default function ClientContractPage() {
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
+        allowTaint: true,
+        height: input.scrollHeight,
+        width: input.scrollWidth
       })
       
       const imgData = canvas.toDataURL('image/png')
@@ -355,7 +359,7 @@ export default function ClientContractPage() {
     )
   }
 
-  if (isSigned || contract.clientSignature) {
+  if (contract.clientSignature) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
         {/* Client-Only Header */}

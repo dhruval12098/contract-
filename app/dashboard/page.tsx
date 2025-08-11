@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle, MoreHorizontal, Eye } from "lucide-react"
+import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle } from "lucide-react"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import { useRouter } from "next/navigation"
@@ -12,20 +12,21 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useContractStore } from "@/store/contract-store"
 import { useEffect, useRef, useState } from "react"
 import { ContractPreview } from "@/components/contract-preview"
 import { Agency } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
+import { toast } from "sonner"
 
 type Status = "draft" | "review" | "signed" | "completed";
 
-const statusColors: Record<Status, "outline" | "default" | "destructive" | "secondary"> = {
-  draft: "default",
-  review: "default",
-  signed: "default",
-  completed: "default",
+const statusColors: Record<Status, string> = {
+  draft: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+  review: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  signed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  completed: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
 }
 
 const statusIcons: Record<Status, React.ComponentType<any>> = {
@@ -262,62 +263,96 @@ export default function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredContracts.map((contract: ContractData) => {
-                      const StatusIcon = statusIcons[contract.status as Status];
-                      return (
-                        <TableRow key={contract.id ?? ''} className="group">
-                          <TableCell>
-                            <Badge variant={statusColors[contract.status as Status]}>{contract.status}</Badge>
-                          </TableCell>
-                          <TableCell className="font-medium">{contract.clientName}</TableCell>
-                          <TableCell>{contract.projectTitle}</TableCell>
-                          <TableCell>{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
-                                  <Eye className="mr-2 h-4 w-4" /> View Contract
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => router.push(`/wizard?contractId=${contract.id ?? ''}`)}>
-                                  <Edit className="mr-2 h-4 w-4" /> Edit Contract
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
-                                  <Copy className="mr-2 h-4 w-4" /> Duplicate Contract
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => contract.id && deleteContract(contract.id)} 
-                                  className="text-red-600">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Contract
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead className="hidden sm:table-cell">Project</TableHead>
+                    <TableHead className="hidden sm:table-cell">Created</TableHead>
+                    <TableHead className="hidden sm:table-cell">Shareable Link</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredContracts.map((contract: ContractData) => {
+                    const StatusIcon = statusIcons[contract.status as Status]
+                    return (
+                      <TableRow key={contract.id ?? ''}>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex items-center gap-2">
+                            <StatusIcon className="h-4 w-4" />
+                            <Badge variant="outline" className={statusColors[contract.status as Status]}>
+                              {contract.status}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>{contract.clientName}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{contract.projectTitle}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{new Date(contract.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {contract.shareableLink ? (
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={contract.shareableLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline truncate max-w-xs"
+                                title={contract.shareableLink}
+                              >
+                                {contract.shareableLink}
+                              </a>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(contract.shareableLink!)
+                                  toast.success("Link copied to clipboard!")
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Not generated</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => router.push(`/contract/${contract.id ?? ''}`)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                View/Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setContractToDownload(contract)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => contract.id && deleteContract(contract.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>

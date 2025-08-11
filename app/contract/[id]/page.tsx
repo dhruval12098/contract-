@@ -38,11 +38,17 @@ export default function ContractViewPage() {
         console.error('Contract preview container not found')
         return
       }
+      
       const canvas = await html2canvas(input, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        logging: false,
+        allowTaint: true,
+        height: input.scrollHeight,
+        width: input.scrollWidth
       })
+      
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF('p', 'mm', 'a4')
       const imgWidth = 210
@@ -51,16 +57,20 @@ export default function ContractViewPage() {
       let heightLeft = imgHeight
       let position = 0
 
+      // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
 
+      // Add additional pages if needed
       while (heightLeft > 0) {
         position = heightLeft - imgHeight
         pdf.addPage()
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
         heightLeft -= pageHeight
       }
-      pdf.save(`contract-${contract.id || 'preview'}.pdf`)
+      
+      const fileName = `contract-${contract?.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contract.id || 'preview'}.pdf`
+      pdf.save(fileName)
     } catch (error) {
       console.error('Error generating PDF:', error)
     } finally {
