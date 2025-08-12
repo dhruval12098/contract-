@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Upload, PenTool, CheckCircle, Download, FileText, User, Edit3, RotateCcw, Smartphone } from "lucide-react"
+import { Upload, CheckCircle, Download, FileText, User, Edit3, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { ContractPreview } from "@/components/contract-preview"
 import { usePWAInstall } from "@/hooks/use-pwa-install"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import dynamic from "next/dynamic"
 
 // Import PDF generation utility
@@ -41,14 +42,15 @@ export default function ClientContractPage() {
   const { agency, checkAuth, isAuthenticated } = useAuthStore()
   
   const [contract, setContract] = useState<any>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
   const [signerName, setSignerName] = useState("")
   const [signerEmail, setSignerEmail] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false)
   const [showEditSignature, setShowEditSignature] = useState(false)
+  const [isAgreementChecked, setIsAgreementChecked] = useState(false)
+  const [signatureImage, setSignatureImage] = useState<string | null>(null)
+  const [showPopup, setShowPopup] = useState(false)
   const { handleInstallApp, showInstallPrompt } = usePWAInstall()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Wait for hydration before loading
@@ -135,49 +137,6 @@ export default function ClientContractPage() {
     return () => clearInterval(refreshInterval)
   }, [contractId, isHydrated, loadContract, contract])
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true)
-    const canvas = canvasRef.current
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect()
-      const ctx = canvas.getContext("2d")
-      if (ctx) {
-        ctx.strokeStyle = "#000"
-        ctx.lineWidth = 2
-        ctx.lineCap = "round"
-        ctx.beginPath()
-        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top)
-      }
-    }
-  }
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return
-    const canvas = canvasRef.current
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect()
-      const ctx = canvas.getContext("2d")
-      if (ctx) {
-        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top)
-        ctx.stroke()
-      }
-    }
-  }
-
-  const stopDrawing = () => {
-    setIsDrawing(false)
-  }
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current
-    if (canvas) {
-      const ctx = canvas.getContext("2d")
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-      }
-    }
-  }
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -193,68 +152,45 @@ export default function ClientContractPage() {
       const reader = new FileReader()
       reader.onload = async (event) => {
         const imageData = event.target?.result as string
-        try {
-          const result = await signAsClient(imageData, contractId)
-          if (result.success) {
-            setContract((prev: any) => ({
-              ...prev,
-              clientSignature: imageData,
-              clientSignedAt: new Date().toISOString(),
-              status: "signed"
-            }))
-            setContractSigned(contractId, true)
-            toast.success("Contract signed successfully!", {
-              description: "Your signature has been saved and the agency has been notified."
-            })
-          } else {
-            toast.error("Failed to sign contract", {
-              description: result.error
-            })
-          }
-        } catch (error) {
-          toast.error("Error signing contract")
-        }
+        setSignatureImage(imageData)
+        setSignatureMethod("upload")
+        setShowPopup(true)
       }
       reader.readAsDataURL(file)
     }
   }
 
   const handleSignContract = async () => {
-    if (signatureMethod === "draw") {
-      const canvas = canvasRef.current
-      if (canvas) {
-        const ctx = canvas.getContext('2d')
-        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
-        const hasContent = imageData?.data.some((channel, index) => index % 4 !== 3 && channel !== 0)
-        
-        if (!hasContent) {
-          toast.error("Please draw your signature first")
-          return
-        }
+    if (!isAgreementChecked) {
+      toast.error("Please agree to the terms and conditions before signing")
+      return
+    }
 
-        const signatureData = canvas.toDataURL()
-        try {
-          const result = await signAsClient(signatureData, contractId)
-          if (result.success) {
-            setContract((prev: any) => ({
-              ...prev,
-              clientSignature: signatureData,
-              clientSignedAt: new Date().toISOString(),
-              status: "signed"
-            }))
-            setContractSigned(contractId, true)
-            toast.success("Contract signed successfully!", {
-              description: "Your signature has been saved and the agency has been notified."
-            })
-          } else {
-            toast.error("Failed to sign contract", {
-              description: result.error
-            })
-          }
-        } catch (error) {
-          toast.error("Error signing contract")
+    if (signatureMethod === "upload" && fileInputRef.current?.files?.[0] && signatureImage) {
+      try {
+        const result = await signAsClient(signatureImage, contractId)
+        if (result.success) {
+          setContract((prev: any) => ({
+            ...prev,
+            clientSignature: signatureImage,
+            clientSignedAt: new Date().toISOString(),
+            status: "signed"
+          }))
+          setContractSigned(contractId, true)
+          toast.success("Contract signed successfully!", {
+            description: "Your signature has been saved and the agency has been notified."
+          })
+          setShowPopup(false)
+        } else {
+          toast.error("Failed to sign contract", {
+            description: result.error
+          })
         }
+      } catch (error) {
+        toast.error("Error signing contract")
       }
+    } else {
+      toast.error("Please upload a signature image")
     }
   }
 
@@ -262,7 +198,9 @@ export default function ClientContractPage() {
     setShowEditSignature(true)
     setContractSigned(contractId, false)
     setSignatureMethod(null)
-    clearSignature()
+    setSignatureImage(null)
+    setShowPopup(false)
+    setIsAgreementChecked(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -271,7 +209,9 @@ export default function ClientContractPage() {
   const resetSignature = () => {
     setSignatureMethod(null)
     setShowEditSignature(false)
-    clearSignature()
+    setSignatureImage(null)
+    setShowPopup(false)
+    setIsAgreementChecked(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -556,55 +496,38 @@ export default function ClientContractPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <Button
-                    variant={signatureMethod === "draw" ? "default" : "outline"}
-                    onClick={() => setSignatureMethod("draw")}
-                    className="h-auto p-4 flex-col gap-2 bg-transparent"
-                  >
-                    <PenTool className="h-6 w-6" />
-                    <span className="text-sm">Draw Signature</span>
-                  </Button>
-                  <Button
                     variant={signatureMethod === "upload" ? "default" : "outline"}
                     onClick={() => setSignatureMethod("upload")}
-                    className="h-auto p-4 flex-col gap-2 bg-transparent"
+                    className="h-auto p-4 flex-col gap-2 bg-black text-white hover:bg-gray-800"
                   >
                     <Upload className="h-6 w-6" />
                     <span className="text-sm">Upload Image</span>
                   </Button>
                 </div>
 
-                {signatureMethod === "draw" && (
-                  <div className="space-y-3">
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                      <canvas
-                        ref={canvasRef}
-                        width={400}
-                        height={120}
-                        className="w-full border rounded cursor-crosshair bg-white"
-                        onMouseDown={startDrawing}
-                        onMouseMove={draw}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                      />
-                    </div>
-                    <Button onClick={clearSignature} variant="outline" size="sm" className="bg-transparent">
-                      Clear Signature
-                    </Button>
-                  </div>
-                )}
-
                 {signatureMethod === "upload" && (
                   <div className="space-y-3">
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-2">Upload your signature image</p>
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="max-w-xs mx-auto"
-                      />
+                    <div className="flex items-center gap-4">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center flex-1">
+                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-2">Upload your signature image</p>
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="max-w-xs mx-auto"
+                        />
+                      </div>
+                      {signatureImage && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={signatureImage}
+                            alt="Uploaded signature"
+                            className="h-16 w-auto border rounded"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -615,13 +538,6 @@ export default function ClientContractPage() {
             <Card className="shadow-lg border-0">
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <div className="flex items-start space-x-2">
-                    <input type="checkbox" id="agreement" className="mt-1" />
-                    <Label htmlFor="agreement" className="text-sm leading-relaxed">
-                      I have read and agree to the terms and conditions outlined in this contract. I understand that
-                      this digital signature is legally binding and equivalent to a handwritten signature.
-                    </Label>
-                  </div>
                   <div className="flex gap-3">
                     <Button onClick={handleDownload} variant="outline" className="flex-1 bg-transparent">
                       <Download className="mr-2 h-4 w-4" />
@@ -629,10 +545,10 @@ export default function ClientContractPage() {
                     </Button>
                     <Button
                       onClick={handleSignContract}
-                      disabled={!signatureMethod || !signerName || !signerEmail}
+                      disabled={!signatureMethod || !signerName || !signerEmail || !isAgreementChecked}
                       className="flex-1 shadow-lg hover:shadow-xl transition-shadow"
                     >
-                      <PenTool className="mr-2 h-4 w-4" />
+                      <Upload className="mr-2 h-4 w-4" />
                       Sign Contract
                     </Button>
                   </div>
@@ -642,6 +558,47 @@ export default function ClientContractPage() {
           </div>
         </div>
       </div>
+
+      {/* Popup for Agreement */}
+      <Dialog open={showPopup} onOpenChange={setShowPopup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Your Signature</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-start space-x-2">
+              <input 
+                type="checkbox" 
+                id="agreement-popup" 
+                className="mt-1"
+                checked={isAgreementChecked}
+                onChange={(e) => setIsAgreementChecked(e.target.checked)}
+              />
+              <Label htmlFor="agreement-popup" className="text-sm leading-relaxed">
+                I have read and agree to the terms and conditions outlined in this contract. I understand that
+                this digital signature is legally binding and equivalent to a handwritten signature.
+              </Label>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPopup(false)
+                  setIsAgreementChecked(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSignContract}
+                disabled={!isAgreementChecked}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Client Footer */}
       <footer className="bg-white dark:bg-gray-800 border-t mt-12">
