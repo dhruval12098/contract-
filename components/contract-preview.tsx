@@ -5,6 +5,7 @@ import type { ContractData } from "@/store/contract-store"
 import { Agency } from "@/store/auth-store"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
 
 interface ContractPreviewProps {
   contract: ContractData
@@ -32,6 +33,35 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
       onUpdate({
         ...contract,
         [field]: value,
+      })
+    }
+  }
+
+  const handleScopeUpdate = (index: number, value: string) => {
+    if (onUpdate) {
+      const newScope = [...safeContract.scope]
+      newScope[index] = value
+      onUpdate({
+        ...contract,
+        scope: newScope.filter(item => item.trim() !== ''), // Remove empty items
+      })
+    }
+  }
+
+  const handleClauseUpdate = (index: number, field: 'title' | 'description' | 'new', value?: string) => {
+    if (onUpdate) {
+      const newClauses = [...safeContract.clauses]
+      if (field === 'new') {
+        newClauses.push({ title: '', description: '' })
+      } else {
+        newClauses[index] = {
+          ...newClauses[index],
+          [field]: value,
+        }
+      }
+      onUpdate({
+        ...contract,
+        clauses: newClauses.filter(clause => clause.title.trim() !== '' || clause.description.trim() !== ''), // Remove empty clauses
       })
     }
   }
@@ -186,12 +216,82 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
             {safeContract.type === "client" ? "Scope of Work" : "Responsibilities"}
           </h2>
           <ul className="list-disc list-inside space-y-1">
-            {safeContract.scope.map((item, index) => (
-              <li key={index}>{String(item)}</li>
-            ))}
+            {isEditing ? (
+              safeContract.scope.map((item, index) => (
+                <li key={index}>
+                  <Input
+                    value={item}
+                    onChange={(e) => handleScopeUpdate(index, e.target.value)}
+                    placeholder={`Scope item ${index + 1}`}
+                    className="text-sm"
+                  />
+                </li>
+              ))
+            ) : (
+              safeContract.scope.map((item, index) => (
+                <li key={index}>{String(item)}</li>
+              ))
+            )}
           </ul>
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleScopeUpdate(safeContract.scope.length, '')}
+              className="mt-2"
+            >
+              Add Scope Item
+            </Button>
+          )}
         </div>
       )}
+
+      {/* Clauses */}
+      {safeContract.clauses && safeContract.clauses.length > 0 && (
+        <div className="mb-6 relative z-10">
+          <h2 className="text-lg font-semibold mb-3 uppercase">Clauses</h2>
+          <div className="space-y-4">
+            {isEditing ? (
+              safeContract.clauses.map((clause, index) => (
+                <div key={index} className="border p-3 rounded-md">
+                  <Input
+                    value={clause.title}
+                    onChange={(e) => handleClauseUpdate(index, 'title', e.target.value)}
+                    placeholder={`Clause ${index + 1} Title`}
+                    className="text-sm mb-2"
+                  />
+                  <Textarea
+                    value={clause.description}
+                    onChange={(e) => handleClauseUpdate(index, 'description', e.target.value)}
+                    placeholder={`Clause ${index + 1} Description`}
+                    className="text-sm"
+                    rows={3}
+                  />
+                </div>
+              ))
+            ) : (
+              safeContract.clauses.map((clause, index) => (
+                <div key={index}>
+                  <h3 className="font-semibold">{clause.title}</h3>
+                  <p>{clause.description}</p>
+                </div>
+              ))
+            )}
+          </div>
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleClauseUpdate(safeContract.clauses.length, 'new')}
+              className="mt-2"
+            >
+              Add Clause
+            </Button>
+          )}
+        </div>
+      )}
+
+
 
       {/* Payment Terms */}
       <div className="mb-6 relative z-10">

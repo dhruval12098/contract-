@@ -295,11 +295,11 @@ export default function ContractViewPage() {
           className="max-w-4xl mx-auto"
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 contract-preview-container">
-            <ContractPreview 
-              contract={editableContract} 
-              agency={agency} 
-              isEditing={isEditing && canEdit}
-              onUpdate={canEdit ? setEditableContract : undefined}
+            <ContractPreview
+              contract={editableContract}
+              agency={agency}
+              isEditing={isEditing}
+              onUpdate={setEditableContract}
             />
           </div>
         </motion.div>
