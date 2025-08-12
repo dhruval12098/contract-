@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Download, Send, ArrowLeft } from "lucide-react"
+import { Download, Send, ArrowLeft, Edit2, Save, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useContractStore } from "@/store/contract-store"
 import { ContractPreview } from "@/components/contract-preview"
@@ -17,9 +17,11 @@ import { Agency } from "@/store/auth-store"
 export default function ContractViewPage() {
   const params = useParams()
   const contractId = params.id as string
-  const { contracts, loadContract, currentContract } = useContractStore()
+  const { contracts, loadContract, currentContract, updateContract } = useContractStore()
   const { agency } = useAuthStore()
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editableContract, setEditableContract] = useState<ContractData>(currentContract)
 
   useEffect(() => {
     if (contractId && contractId !== "new-contract") {
@@ -27,8 +29,19 @@ export default function ContractViewPage() {
     }
   }, [contractId, loadContract])
 
-  const contract: ContractData =
-    contractId === "new-contract" ? currentContract : contracts.find((c) => c.id === contractId) || currentContract
+  useEffect(() => {
+    // Sync editableContract with the loaded contract when not in edit mode
+    if (!isEditing) {
+      const loadedContract = contractId === "new-contract" ? currentContract : contracts.find((c) => c.id === contractId) || currentContract
+      setEditableContract(loadedContract)
+    }
+  }, [contracts, currentContract, contractId, isEditing])
+
+  const contract: ContractData = editableContract
+  
+  // Check if contract can be edited (only drafts can be edited)
+  const canEdit = contract.status === 'draft'
+  const isContractSigned = contract.status === 'signed' || contract.status === 'completed'
 
   const handleDownload = async () => {
     setIsDownloading(true)
@@ -56,9 +69,54 @@ export default function ContractViewPage() {
       const imgHeight = canvas.height * imgWidth / canvas.width
       let heightLeft = imgHeight
       let position = 0
+      let pageCount = 0
+
+      // Helper function to add logo to current page
+      const addLogoToPage = async () => {
+        if (agency?.logo) {
+          try {
+            // Create a temporary image element to get logo dimensions
+            const logoImg = new Image()
+            logoImg.crossOrigin = 'anonymous'
+            
+            await new Promise((resolve, reject) => {
+              logoImg.onload = resolve
+              logoImg.onerror = reject
+              logoImg.src = agency.logo!
+            })
+            
+            // Calculate logo size and position (centered, with opacity)
+            const maxLogoWidth = 60 // mm
+            const maxLogoHeight = 60 // mm
+            const logoAspectRatio = logoImg.width / logoImg.height
+            
+            let logoWidth = maxLogoWidth
+            let logoHeight = maxLogoWidth / logoAspectRatio
+            
+            if (logoHeight > maxLogoHeight) {
+              logoHeight = maxLogoHeight
+              logoWidth = maxLogoHeight * logoAspectRatio
+            }
+            
+            // Center the logo on the page
+            const logoX = (imgWidth - logoWidth) / 2
+            const logoY = (pageHeight - logoHeight) / 2
+            
+            // Add logo with low opacity as watermark
+            pdf.saveGraphicsState()
+            pdf.setGState({ opacity: 0.1 } as any)
+            pdf.addImage(agency.logo, 'PNG', logoX, logoY, logoWidth, logoHeight)
+            pdf.restoreGraphicsState()
+          } catch (error) {
+            console.warn('Failed to add logo to PDF:', error)
+          }
+        }
+      }
 
       // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      await addLogoToPage()
+      pageCount++
       heightLeft -= pageHeight
 
       // Add additional pages if needed
@@ -66,6 +124,8 @@ export default function ContractViewPage() {
         position = heightLeft - imgHeight
         pdf.addPage()
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        await addLogoToPage()
+        pageCount++
         heightLeft -= pageHeight
       }
       
@@ -78,8 +138,63 @@ export default function ContractViewPage() {
     }
   }
 
-  const handleSendToClient = () => {
-    window.open(`/contract/${contractId}/sign`, "_blank")
+  const handleSendToClient = async () => {
+    try {
+      // Generate or get the shareable link
+      const { generateShareableLink } = useContractStore.getState()
+      let shareableLink = contract.shareableLink
+      
+      if (!shareableLink) {
+        shareableLink = generateShareableLink(contractId)
+        // Update the contract with the new shareable link
+        updateContract({ shareableLink })
+        
+        // Save the updated contract
+        const { saveContract } = useContractStore.getState()
+        await saveContract()
+      }
+      
+      if (shareableLink) {
+        window.open(shareableLink, "_blank")
+      } else {
+        const toast = (await import("sonner")).toast
+        toast.error("Failed to generate shareable link")
+      }
+    } catch (error) {
+      console.error("Error generating shareable link:", error)
+      const toast = (await import("sonner")).toast
+      toast.error("Failed to generate shareable link")
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      // Update the contract in the store
+      updateContract(editableContract)
+      
+      // Save to database
+      const { saveContract } = useContractStore.getState()
+      const result = await saveContract()
+      
+      if (result.success) {
+        setIsEditing(false)
+        // Show success message
+        const toast = (await import("sonner")).toast
+        toast.success("Contract updated successfully!")
+      } else {
+        const toast = (await import("sonner")).toast
+        toast.error(result.error || "Failed to save contract")
+      }
+    } catch (error) {
+      console.error("Error saving contract:", error)
+      const toast = (await import("sonner")).toast
+      toast.error("Failed to save contract")
+    }
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    // editableContract will reset via useEffect
   }
 
   if (!contract.projectTitle || !agency) {
@@ -93,7 +208,6 @@ export default function ContractViewPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto p-6">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -110,29 +224,70 @@ export default function ContractViewPage() {
             <div>
               <h1 className="text-2xl font-bold">{contract.projectTitle || "Contract Preview"}</h1>
               <p className="text-muted-foreground">
-                {contract.type === "client" ? "Client Contract" : "Hiring Contract"}
+                {contract.type === "client" ? "Client Contract" : "Hiring Contract"} 
+                {isContractSigned && <span className="ml-2 text-green-600 font-medium">• Signed</span>}
+                {contract.status === 'draft' && <span className="ml-2 text-yellow-600 font-medium">• Draft</span>}
               </p>
             </div>
           </div>
 
           <div className="flex gap-3">
-            <Button 
-              onClick={handleDownload} 
-              variant="outline" 
-              className="bg-transparent"
-              disabled={isDownloading}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {isDownloading ? 'Downloading...' : 'Download PDF'}
-            </Button>
-            <Button onClick={handleSendToClient} className="shadow-md hover:shadow-lg transition-shadow">
-              <Send className="mr-2 h-4 w-4" />
-              Send for Signing
-            </Button>
+            {!isEditing ? (
+              <>
+                {canEdit && (
+                  <Button 
+                    onClick={() => setIsEditing(true)} 
+                    variant="outline" 
+                    className="bg-transparent"
+                  >
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleDownload} 
+                  variant="outline" 
+                  className="bg-transparent"
+                  disabled={isDownloading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isDownloading ? 'Downloading...' : 'Download PDF'}
+                </Button>
+                {!isContractSigned && (
+                  <Button onClick={handleSendToClient} className="shadow-md hover:shadow-lg transition-shadow">
+                    <Send className="mr-2 h-4 w-4" />
+                    Send for Signing
+                  </Button>
+                )}
+                {isContractSigned && contract.shareableLink && (
+                  <Button 
+                    onClick={() => window.open(contract.shareableLink, '_blank')} 
+                    className="shadow-md hover:shadow-lg transition-shadow"
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    View Signed Contract
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Button 
+                  onClick={handleCancel} 
+                  variant="outline" 
+                  className="bg-transparent"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} className="shadow-md hover:shadow-lg transition-shadow">
+                  <Save className="mr-2 h-4 w-4" />
+                  Save
+                </Button>
+              </>
+            )}
           </div>
         </motion.div>
 
-        {/* Contract */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -140,7 +295,12 @@ export default function ContractViewPage() {
           className="max-w-4xl mx-auto"
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 contract-preview-container">
-            <ContractPreview contract={contract} agency={agency} />
+            <ContractPreview 
+              contract={editableContract} 
+              agency={agency} 
+              isEditing={isEditing && canEdit}
+              onUpdate={canEdit ? setEditableContract : undefined}
+            />
           </div>
         </motion.div>
       </div>

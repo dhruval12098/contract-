@@ -44,11 +44,20 @@ export function StepSeven() {
         return
       }
 
+      // Wait a moment for the contract to be saved and get the ID
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       // Generate the shareable link using the store's function
-      const shareLink = generateShareableLink()
+      const shareLink = generateShareableLink(currentContract.id)
+      if (!shareLink) {
+        toast.error("Failed to generate link - contract ID not found")
+        return
+      }
+      
       setGeneratedLink(shareLink)
       toast.success("Link generated successfully!")
     } catch (error) {
+      console.error("Error generating link:", error)
       toast.error("Failed to generate link: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
       setIsSaving(false)

@@ -107,6 +107,34 @@ export default function ClientContractPage() {
     loadContractData()
   }, [contractId, isHydrated, loadContract, setContractSession, clientName, clientEmail, setContractSigned])
 
+  // Add periodic refresh for contract data (every 30 seconds) to catch updates
+  useEffect(() => {
+    if (!contractId || !isHydrated) return
+
+    const refreshInterval = setInterval(async () => {
+      try {
+        const result = await loadContract(contractId)
+        if (result.success && result.data) {
+          const safeContract = {
+            ...result.data,
+            clauses: Array.isArray(result.data.clauses) ? result.data.clauses : [],
+            scope: Array.isArray(result.data.scope) ? result.data.scope : [],
+          }
+          
+          // Only update if the contract has actually changed
+          if (JSON.stringify(safeContract) !== JSON.stringify(contract)) {
+            setContract(safeContract)
+            console.log("Contract updated from server")
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing contract:", error)
+      }
+    }, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval)
+  }, [contractId, isHydrated, loadContract, contract])
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true)
     const canvas = canvasRef.current

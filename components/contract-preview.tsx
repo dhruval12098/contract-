@@ -3,13 +3,17 @@
 import { memo } from "react"
 import type { ContractData } from "@/store/contract-store"
 import { Agency } from "@/store/auth-store"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 interface ContractPreviewProps {
   contract: ContractData
   agency: Agency | null
+  isEditing?: boolean
+  onUpdate?: (contract: ContractData) => void
 }
 
-export const ContractPreview = memo(function ContractPreview({ contract, agency }: ContractPreviewProps) {
+export const ContractPreview = memo(function ContractPreview({ contract, agency, isEditing, onUpdate }: ContractPreviewProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not specified"
     try {
@@ -23,15 +27,24 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency 
     }
   }
 
+  const handleFieldUpdate = (field: keyof ContractData, value: any) => {
+    if (onUpdate) {
+      onUpdate({
+        ...contract,
+        [field]: value,
+      })
+    }
+  }
+
   const formatCurrency = (amount: number) => {
-    if (!amount || isNaN(amount)) return "$0.00"
+    if (!amount || isNaN(amount)) return "₹0.00"
     try {
-      return new Intl.NumberFormat("en-US", {
+      return new Intl.NumberFormat("en-IN", {
         style: "currency",
-        currency: "USD",
+        currency: "INR",
       }).format(amount)
     } catch (error) {
-      return `$${amount}`
+      return `₹${amount}`
     }
   }
 
@@ -76,8 +89,28 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency 
           </div>
           <div>
             <p className="font-semibold">{safeContract.type === "client" ? "CLIENT" : "EMPLOYEE"}:</p>
-            <p>{safeContract.clientName || "[Client/Employee Name]"}</p>
-            <p>{safeContract.clientEmail || "[Client/Employee Email]"}</p>
+            {isEditing ? (
+              <div className="space-y-2">
+                <Input
+                  value={safeContract.clientName}
+                  onChange={(e) => handleFieldUpdate('clientName', e.target.value)}
+                  placeholder="Client/Employee Name"
+                  className="text-sm"
+                />
+                <Input
+                  value={safeContract.clientEmail}
+                  onChange={(e) => handleFieldUpdate('clientEmail', e.target.value)}
+                  placeholder="Client/Employee Email"
+                  type="email"
+                  className="text-sm"
+                />
+              </div>
+            ) : (
+              <>
+                <p>{safeContract.clientName || "[Client/Employee Name]"}</p>
+                <p>{safeContract.clientEmail || "[Client/Employee Email]"}</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -88,26 +121,61 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency 
           {safeContract.type === "client" ? "Project Details" : "Position Details"}
         </h2>
         <div className="space-y-2">
-          <p>
+          <div>
             <span className="font-semibold">
               {safeContract.type === "client" ? "Project Title:" : "Position Title:"}
             </span>{" "}
-            {safeContract.projectTitle || "[Project/Position Title]"}
-          </p>
-          {safeContract.projectDescription && (
-            <p>
-              <span className="font-semibold">Description:</span> {safeContract.projectDescription}
-            </p>
-          )}
-          <p>
-            <span className="font-semibold">Start Date:</span> {formatDate(safeContract.startDate)}
-          </p>
-          {safeContract.endDate && (
-            <p>
-              <span className="font-semibold">{safeContract.type === "client" ? "Completion Date:" : "End Date:"}</span>{" "}
-              {formatDate(safeContract.endDate)}
-            </p>
-          )}
+            {isEditing ? (
+              <Input
+                value={safeContract.projectTitle}
+                onChange={(e) => handleFieldUpdate('projectTitle', e.target.value)}
+                placeholder="Project/Position Title"
+                className="text-sm mt-1"
+              />
+            ) : (
+              <span>{safeContract.projectTitle || "[Project/Position Title]"}</span>
+            )}
+          </div>
+          <div>
+            <span className="font-semibold">Description:</span>{" "}
+            {isEditing ? (
+              <Textarea
+                value={safeContract.projectDescription}
+                onChange={(e) => handleFieldUpdate('projectDescription', e.target.value)}
+                placeholder="Project/Position Description"
+                className="text-sm mt-1"
+                rows={3}
+              />
+            ) : (
+              <span>{safeContract.projectDescription || "[Project/Position Description]"}</span>
+            )}
+          </div>
+          <div>
+            <span className="font-semibold">Start Date:</span>{" "}
+            {isEditing ? (
+              <Input
+                type="date"
+                value={safeContract.startDate}
+                onChange={(e) => handleFieldUpdate('startDate', e.target.value)}
+                className="text-sm mt-1"
+              />
+            ) : (
+              <span>{formatDate(safeContract.startDate)}</span>
+            )}
+          </div>
+          <div>
+            <span className="font-semibold">{safeContract.type === "client" ? "Completion Date:" : "End Date:"}</span>{" "}
+            {isEditing ? (
+              <Input
+                type="date"
+                value={safeContract.endDate}
+                onChange={(e) => handleFieldUpdate('endDate', e.target.value)}
+                className="text-sm mt-1"
+              />
+            ) : (
+              <span>{formatDate(safeContract.endDate)}</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -131,17 +199,36 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency 
           {safeContract.type === "client" ? "Payment Terms" : "Compensation"}
         </h2>
         <div className="space-y-2">
-          <p>
+          <div>
             <span className="font-semibold">
               {safeContract.type === "client" ? "Total Project Value:" : "Compensation:"}
             </span>{" "}
-            {formatCurrency(safeContract.paymentAmount)}
-          </p>
-          {safeContract.paymentTerms && (
-            <p>
-              <span className="font-semibold">Payment Schedule:</span> {safeContract.paymentTerms}
-            </p>
-          )}
+            {isEditing ? (
+              <Input
+                type="number"
+                value={safeContract.paymentAmount}
+                onChange={(e) => handleFieldUpdate('paymentAmount', parseFloat(e.target.value) || 0)}
+                placeholder="Amount"
+                className="text-sm mt-1"
+              />
+            ) : (
+              <span>{formatCurrency(safeContract.paymentAmount)}</span>
+            )}
+          </div>
+          <div>
+            <span className="font-semibold">Payment Schedule:</span>{" "}
+            {isEditing ? (
+              <Textarea
+                value={safeContract.paymentTerms}
+                onChange={(e) => handleFieldUpdate('paymentTerms', e.target.value)}
+                placeholder="Payment terms and schedule"
+                className="text-sm mt-1"
+                rows={2}
+              />
+            ) : (
+              <span>{safeContract.paymentTerms || "[Payment terms not specified]"}</span>
+            )}
+          </div>
         </div>
       </div>
 

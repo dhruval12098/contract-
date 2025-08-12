@@ -1,56 +1,74 @@
 "use client"
 
-import { useCallback } from "react"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import { toast } from "sonner"
-import { useAuthStore } from "@/store/auth-store"
+import { ContractData } from "@/store/contract-store"
+import { Agency } from "@/store/auth-store"
+import { ContractPreview } from "@/components/contract-preview"
+import { createRoot } from "react-dom/client"
+import { createElement } from "react"
 
-interface PDFGeneratorProps {
-  contractId: string
-  projectTitle?: string
+export const generateDashboardPDF = async (
+  contract: ContractData, 
+  agency: Agency,
   onGenerating?: (isGenerating: boolean) => void
-}
-
-// Export the utility function directly
-export const generatePDF = async (contractId: string, projectTitle?: string, onGenerating?: (isGenerating: boolean) => void, agency?: any) => {
+) => {
   if (onGenerating) onGenerating(true)
   
-  toast.loading("Generating PDF...", { id: "download" })
+  toast.loading("Generating PDF...", { id: "dashboard-download" })
   
   try {
-    const input = document.querySelector('.contract-preview-container') as HTMLElement | null
-    if (!input) {
-      toast.error("Contract preview not found", { id: "download" })
-      return
-    }
+    // Create a temporary container for rendering
+    const tempContainer = document.createElement('div')
+    tempContainer.style.position = 'absolute'
+    tempContainer.style.left = '-9999px'
+    tempContainer.style.top = '-9999px'
+    tempContainer.style.width = '800px'
+    tempContainer.style.backgroundColor = 'white'
+    tempContainer.style.padding = '32px'
+    tempContainer.style.fontFamily = 'system-ui, -apple-system, sans-serif'
+    tempContainer.style.lineHeight = '1.6'
+    tempContainer.style.color = '#000'
+    tempContainer.style.fontSize = '14px'
     
-    const canvas = await html2canvas(input, {
-      scale: 1.5, // Reduced from 2 for better performance
+    document.body.appendChild(tempContainer)
+    
+    // Create root and render the contract preview
+    const root = createRoot(tempContainer)
+    root.render(createElement(ContractPreview, { 
+      contract: contract, 
+      agency: agency 
+    }))
+    
+    // Wait for rendering to complete
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    // Generate PDF from the rendered content
+    const canvas = await html2canvas(tempContainer, {
+      scale: 1.5,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
       allowTaint: true,
-      height: input.scrollHeight,
-      width: input.scrollWidth,
+      height: tempContainer.scrollHeight,
+      width: tempContainer.scrollWidth,
       removeContainer: true,
       imageTimeout: 5000
     })
     
-    const imgData = canvas.toDataURL('image/jpeg', 0.8) // Use JPEG with compression
+    const imgData = canvas.toDataURL('image/jpeg', 0.8)
     const pdf = new jsPDF('p', 'mm', 'a4')
     const imgWidth = 210
     const pageHeight = 297
     const imgHeight = canvas.height * imgWidth / canvas.width
     let heightLeft = imgHeight
     let position = 0
-    let pageCount = 0
 
     // Helper function to add logo to current page
     const addLogoToPage = async () => {
       if (agency?.logo) {
         try {
-          // Create a temporary image element to get logo dimensions
           const logoImg = new Image()
           logoImg.crossOrigin = 'anonymous'
           
@@ -60,9 +78,8 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
             logoImg.src = agency.logo!
           })
           
-          // Calculate logo size and position (centered, with opacity)
-          const maxLogoWidth = 60 // mm
-          const maxLogoHeight = 60 // mm
+          const maxLogoWidth = 60
+          const maxLogoHeight = 60
           const logoAspectRatio = logoImg.width / logoImg.height
           
           let logoWidth = maxLogoWidth
@@ -73,11 +90,9 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
             logoWidth = maxLogoHeight * logoAspectRatio
           }
           
-          // Center the logo on the page
           const logoX = (imgWidth - logoWidth) / 2
           const logoY = (pageHeight - logoHeight) / 2
           
-          // Add logo with low opacity as watermark
           pdf.saveGraphicsState()
           pdf.setGState({ opacity: 0.1 } as any)
           pdf.addImage(agency.logo, 'PNG', logoX, logoY, logoWidth, logoHeight)
@@ -91,7 +106,6 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
     // Add first page
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
     await addLogoToPage()
-    pageCount++
     heightLeft -= pageHeight
 
     // Add additional pages if needed
@@ -100,43 +114,26 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
       pdf.addPage()
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
       await addLogoToPage()
-      pageCount++
       heightLeft -= pageHeight
     }
     
-    const fileName = `contract-${projectTitle?.replace(/[^a-z0-9]/gi, '_') || contractId}.pdf`
+    const fileName = `contract-${contract.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contract.id || 'unknown'}.pdf`
     pdf.save(fileName)
     
-    toast.success("PDF downloaded successfully!", { id: "download" })
+    // Clean up
+    root.unmount()
+    if (document.body.contains(tempContainer)) {
+      document.body.removeChild(tempContainer)
+    }
+    
+    toast.success("PDF downloaded successfully!", { id: "dashboard-download" })
   } catch (error) {
     console.error("Error generating PDF:", error)
     toast.error("Failed to generate PDF", { 
-      id: "download",
+      id: "dashboard-download",
       description: "Please try again"
     })
   } finally {
     if (onGenerating) onGenerating(false)
   }
-}
-
-// Component version for dynamic import
-export default function PDFGenerator({ contractId, projectTitle, onGenerating }: PDFGeneratorProps) {
-  const { agency } = useAuthStore()
-  
-  const handleDownload = useCallback(async () => {
-    await generatePDF(contractId, projectTitle, onGenerating, agency)
-  }, [contractId, projectTitle, onGenerating, agency])
-
-  return null // This component doesn't render anything
-}
-
-// Export the hook for easier usage
-export const usePDFGenerator = (contractId: string, projectTitle?: string, onGenerating?: (isGenerating: boolean) => void) => {
-  const { agency } = useAuthStore()
-  
-  const handleDownload = useCallback(async () => {
-    await generatePDF(contractId, projectTitle, onGenerating, agency)
-  }, [contractId, projectTitle, onGenerating, agency])
-
-  return { handleDownload }
 }

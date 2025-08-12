@@ -516,6 +516,12 @@ export const useContractStore = create<ContractStore>()(
 
       generateShareableLink: (idToLink?: string) => {
         const contractId = idToLink || get().currentContract.id || Date.now().toString()
+        
+        // Handle server-side rendering
+        if (typeof window === 'undefined') {
+          return `https://yourapp.com/client/contract/${contractId}`
+        }
+        
         const shareableLink = `${window.location.origin}/client/contract/${contractId}`
 
         // Update the current contract's shareable link if it's the one being linked

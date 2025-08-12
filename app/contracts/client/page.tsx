@@ -106,14 +106,63 @@ export default function ClientContractsPage() {
           const imgHeight = canvas.height * imgWidth / canvas.width
           let heightLeft = imgHeight
           let position = 0
+          let pageCount = 0
 
+          // Helper function to add logo to current page
+          const addLogoToPage = async () => {
+            if (agency?.logo) {
+              try {
+                // Create a temporary image element to get logo dimensions
+                const logoImg = new Image()
+                logoImg.crossOrigin = 'anonymous'
+                
+                await new Promise((resolve, reject) => {
+                  logoImg.onload = resolve
+                  logoImg.onerror = reject
+                  logoImg.src = agency.logo!
+                })
+                
+                // Calculate logo size and position (centered, with opacity)
+                const maxLogoWidth = 60 // mm
+                const maxLogoHeight = 60 // mm
+                const logoAspectRatio = logoImg.width / logoImg.height
+                
+                let logoWidth = maxLogoWidth
+                let logoHeight = maxLogoWidth / logoAspectRatio
+                
+                if (logoHeight > maxLogoHeight) {
+                  logoHeight = maxLogoHeight
+                  logoWidth = maxLogoHeight * logoAspectRatio
+                }
+                
+                // Center the logo on the page
+                const logoX = (imgWidth - logoWidth) / 2
+                const logoY = (pageHeight - logoHeight) / 2
+                
+                // Add logo with low opacity as watermark
+                pdf.saveGraphicsState()
+                pdf.setGState({ opacity: 0.1 } as any)
+                pdf.addImage(agency.logo, 'PNG', logoX, logoY, logoWidth, logoHeight)
+                pdf.restoreGraphicsState()
+              } catch (error) {
+                console.warn('Failed to add logo to PDF:', error)
+              }
+            }
+          }
+
+          // Add first page
           pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+          await addLogoToPage()
+          pageCount++
           heightLeft -= pageHeight
 
+          // Add additional pages if needed
           while (heightLeft >= 0) {
             position = heightLeft - imgHeight
             pdf.addPage()
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+            await addLogoToPage()
+            pageCount++
             heightLeft -= pageHeight
           }
           pdf.save(`contract-${contractToDownload.id ?? 'unknown'}.pdf`)

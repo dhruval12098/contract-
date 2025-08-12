@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/error-boundary"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthLayoutWrapper } from "@/components/auth-layout-wrapper"
 import { AuthInitializer } from "@/components/auth-initializer"
+import { NetworkStatus } from "@/components/network-status"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -68,6 +69,7 @@ export default function RootLayout({
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange forcedTheme="light">
             <CommandPaletteProvider>
               <AuthInitializer />
+              <NetworkStatus />
                <Toaster position="top-right" />
                <AuthLayoutWrapper>{children}</AuthLayoutWrapper>
             </CommandPaletteProvider>

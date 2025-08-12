@@ -3,8 +3,7 @@
 import * as React from "react"
 import { motion } from "framer-motion"
 import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle } from "lucide-react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
+import { generateDashboardPDF } from "@/components/dashboard-pdf-generator"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
@@ -14,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useContractStore } from "@/store/contract-store"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { ContractPreview } from "@/components/contract-preview"
 import { Agency } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
@@ -43,8 +42,8 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const { isAuthenticated, checkAuth, agency, isHydrated } = useAuthStore()
 
-  const contractPreviewRef = useRef<HTMLDivElement>(null)
   const [contractToDownload, setContractToDownload] = useState<ContractData | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   // Check authentication on component mount
   useEffect(() => {
@@ -58,51 +57,24 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, loadContracts])
 
-  // Effect to trigger PDF generation when contractToDownload is set
+  // Handle PDF download using dedicated dashboard PDF generator
   useEffect(() => {
-    const generatePdf = async () => {
-      if (contractToDownload && contractPreviewRef.current && agency) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        const input = contractPreviewRef.current
-        if (input) {
-          const canvas = await html2canvas(input, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            onclone: (clonedDoc) => {
-              const elem = clonedDoc.getElementById('contract-preview-content')
-              if (elem) {
-                elem.style.position = 'static'
-                elem.style.left = '0px'
-                elem.style.top = '0px'
-                elem.style.visibility = 'visible'
-              }
-            },
-          })
-          const imgData = canvas.toDataURL('image/png')
-          const pdf = new jsPDF('p', 'mm', 'a4')
-          const imgWidth = 210
-          const pageHeight = 297
-          const imgHeight = canvas.height * imgWidth / canvas.width
-          let heightLeft = imgHeight
-          let position = 0
-
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-          heightLeft -= pageHeight
-
-          while (heightLeft >= 0) {
-            position = heightLeft - imgHeight
-            pdf.addPage()
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-            heightLeft -= pageHeight
-          }
-          pdf.save(`contract-${contractToDownload.id ?? 'unknown'}.pdf`)
+    const handleDownload = async () => {
+      if (contractToDownload && !isDownloading && agency) {
+        try {
+          await generateDashboardPDF(contractToDownload, agency, setIsDownloading)
+        } catch (error) {
+          console.error('Error downloading PDF:', error)
+        } finally {
+          setContractToDownload(null)
         }
-        setContractToDownload(null)
       }
     }
-    generatePdf()
-  }, [contractToDownload, agency])
+    
+    if (contractToDownload) {
+      handleDownload()
+    }
+  }, [contractToDownload, agency, isDownloading])
 
   // Filter contracts with error handling
   const filteredContracts = contracts.filter((contract: ContractData) => {
@@ -334,9 +306,12 @@ export default function DashboardPage() {
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setContractToDownload(contract)}>
+                              <DropdownMenuItem 
+                                onClick={() => setContractToDownload(contract)}
+                                disabled={isDownloading}
+                              >
                                 <Download className="mr-2 h-4 w-4" />
-                                Download
+                                {isDownloading ? 'Downloading...' : 'Download'}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive"
@@ -357,13 +332,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </motion.div>
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
-        {contractToDownload && agency && (
-          <div id="contract-preview-content" ref={contractPreviewRef} style={{ visibility: 'hidden' }}>
-            <ContractPreview contract={contractToDownload} agency={agency} />
-          </div>
-        )}
-      </div>
+
     </div>
   )
 }

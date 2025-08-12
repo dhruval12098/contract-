@@ -26,6 +26,37 @@ const nextConfig = {
   swcMinify: true,
   poweredByHeader: false,
   compress: true,
+  // Add headers for better CORS and security
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
+  // Add rewrites for API routes if needed
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/api/:path*',
+      },
+    ];
+  },
 }
 
 export default nextConfig

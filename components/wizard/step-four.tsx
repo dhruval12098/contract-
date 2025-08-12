@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { DollarSign, Calendar } from "lucide-react"
+import { IndianRupee, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -49,7 +49,7 @@ export function StepFour() {
               {currentContract.type === "client" ? "Project Value" : "Salary/Rate"}
             </Label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="payment-amount"
                 type="number"

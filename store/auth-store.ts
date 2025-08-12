@@ -50,26 +50,171 @@ export const useAuthStore = create<AuthStore>()(
 
       checkAuth: async () => {
         set({ isLoading: true });
+        
+        const maxRetries = 3;
+        let retryCount = 0;
+        
+        const attemptAuth = async (): Promise<void> => {
+          try {
+            // Clear any existing session first if there are network issues
+            if (retryCount > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            }
+
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error) {
+              // Handle specific error types
+              if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                if (retryCount < maxRetries) {
+                  retryCount++;
+                  console.warn(`Network error during auth check, retrying (${retryCount}/${maxRetries}):`, error.message);
+                  return attemptAuth();
+                }
+              }
+              
+              console.error("Error getting session:", error);
+              
+              // If it's a network error and we've exhausted retries, clear the session
+              if (error.message.includes('Failed to fetch')) {
+                await supabase.auth.signOut();
+              }
+              
+              set({ isAuthenticated: false, agency: null, isLoading: false });
+              return;
+            }
+
+            if (session) {
+              try {
+                const { data: agencyData, error: agencyError } = await supabase
+                  .from('agencies')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .single();
+
+                if (agencyError) {
+                  console.error("Error fetching agency data:", agencyError);
+                  
+                  // If agency data fetch fails, still maintain session but without agency data
+                  if (agencyError.code === 'PGRST116') {
+                    // No agency record found - this might be a new user
+                    console.warn("No agency record found for user:", session.user.id);
+                    set({ isAuthenticated: true, agency: null, isLoading: false });
+                    return;
+                  }
+                  
+                  set({ isAuthenticated: false, agency: null, isLoading: false });
+                  return;
+                }
+
+                const agency: Agency = {
+                  id: agencyData.id,
+                  name: agencyData.name,
+                  email: agencyData.email,
+                  logo: agencyData.logo,
+                  phone: agencyData.phone,
+                  address: agencyData.address,
+                  website: agencyData.website,
+                  description: agencyData.description,
+                  createdAt: agencyData.created_at,
+                };
+
+                set({ isAuthenticated: true, agency, isLoading: false });
+              } catch (dbError) {
+                console.error("Database error during agency fetch:", dbError);
+                // Keep the session but without agency data
+                set({ isAuthenticated: true, agency: null, isLoading: false });
+              }
+            } else {
+              set({ isAuthenticated: false, agency: null, isLoading: false });
+            }
+          } catch (error) {
+            console.error("Unexpected error during checkAuth:", error);
+            
+            if (retryCount < maxRetries && (error as Error).message.includes('fetch')) {
+              retryCount++;
+              console.warn(`Retrying auth check due to network error (${retryCount}/${maxRetries})`);
+              return attemptAuth();
+            }
+            
+            set({ isAuthenticated: false, agency: null, isLoading: false });
+          }
+        };
+
+        await attemptAuth();
+      },
+
+      login: async (email, password) => {
+        set({ isLoading: true });
+        
         try {
-          const { data: { session }, error } = await supabase.auth.getSession();
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          })
 
           if (error) {
-            console.error("Error getting session:", error);
-            set({ isAuthenticated: false, agency: null, isLoading: false });
-            return;
+            set({ isLoading: false });
+            
+            // Handle specific auth errors
+            if (error.message.includes('Failed to fetch')) {
+              return { success: false, error: 'Network connection error. Please check your internet connection and try again.' }
+            }
+            
+            return { success: false, error: error.message }
           }
 
-          if (session) {
+          if (!data.user) {
+            set({ isLoading: false });
+            return { success: false, error: 'Login failed - no user data received' }
+          }
+
+          try {
             const { data: agencyData, error: agencyError } = await supabase
               .from('agencies')
               .select('*')
-              .eq('id', session.user.id)
-              .single();
+              .eq('id', data.user.id)
+              .single()
 
             if (agencyError) {
-              console.error("Error fetching agency data:", agencyError);
-              set({ isAuthenticated: false, agency: null, isLoading: false });
-              return;
+              // If no agency record exists, create a basic one
+              if (agencyError.code === 'PGRST116') {
+                const newAgency = {
+                  id: data.user.id,
+                  name: data.user.email?.split('@')[0] || 'New Agency',
+                  email: data.user.email || '',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                };
+
+                const { error: insertError } = await supabase
+                  .from('agencies')
+                  .insert(newAgency);
+
+                if (insertError) {
+                  console.error('Failed to create agency record:', insertError);
+                  set({ isLoading: false });
+                  return { success: false, error: 'Failed to create agency profile' }
+                }
+
+                const agency: Agency = {
+                  id: newAgency.id,
+                  name: newAgency.name,
+                  email: newAgency.email,
+                  createdAt: newAgency.created_at,
+                };
+
+                set({
+                  isAuthenticated: true,
+                  agency,
+                  isLoading: false,
+                });
+
+                return { success: true }
+              }
+
+              set({ isLoading: false });
+              return { success: false, error: agencyError.message }
             }
 
             const agency: Agency = {
@@ -82,60 +227,29 @@ export const useAuthStore = create<AuthStore>()(
               website: agencyData.website,
               description: agencyData.description,
               createdAt: agencyData.created_at,
-            };
+            }
 
-            set({ isAuthenticated: true, agency, isLoading: false });
-          } else {
-            set({ isAuthenticated: false, agency: null, isLoading: false });
+            set({
+              isAuthenticated: true,
+              agency,
+              isLoading: false,
+            })
+
+            return { success: true }
+          } catch (dbError) {
+            console.error('Database error during login:', dbError);
+            set({ isLoading: false });
+            return { success: false, error: 'Database connection error. Please try again.' }
           }
         } catch (error) {
-          console.error("Unexpected error during checkAuth:", error);
-          set({ isAuthenticated: false, agency: null, isLoading: false });
-        }
-      },
-
-      login: async (email, password) => {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          })
-
-          if (error) {
-            return { success: false, error: error.message }
+          set({ isLoading: false });
+          const errorMessage = (error as Error).message;
+          
+          if (errorMessage.includes('fetch')) {
+            return { success: false, error: 'Network connection error. Please check your internet connection and try again.' }
           }
-
-          const { data: agencyData, error: agencyError } = await supabase
-            .from('agencies')
-            .select('*')
-            .eq('id', data.user?.id)
-            .single()
-
-          if (agencyError) {
-            return { success: false, error: agencyError.message }
-          }
-
-          const agency: Agency = {
-            id: agencyData.id,
-            name: agencyData.name,
-            email: agencyData.email,
-            logo: agencyData.logo,
-            phone: agencyData.phone,
-            address: agencyData.address,
-            website: agencyData.website,
-            description: agencyData.description,
-            createdAt: agencyData.created_at,
-          }
-
-          set({
-            isAuthenticated: true,
-            agency,
-            isLoading: false,
-          })
-
-          return { success: true }
-        } catch (error) {
-          return { success: false, error: (error as Error).message }
+          
+          return { success: false, error: errorMessage }
         }
       },
 
@@ -156,16 +270,24 @@ export const useAuthStore = create<AuthStore>()(
             return { success: false, error: "No agency logged in" }
           }
 
+          // Filter out undefined values and only send changed fields
+          const filteredUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([_, value]) => value !== undefined)
+          )
+
+          // Check if there are actually changes to make
+          const hasChanges = Object.keys(filteredUpdates).some(
+            key => filteredUpdates[key as keyof typeof updates] !== state.agency![key as keyof Agency]
+          )
+
+          if (!hasChanges) {
+            return { success: true } // No changes needed
+          }
+
           const { error } = await supabase
             .from('agencies')
             .update({
-              name: updates.name,
-              email: updates.email,
-              logo: updates.logo,
-              phone: updates.phone,
-              address: updates.address,
-              website: updates.website,
-              description: updates.description,
+              ...filteredUpdates,
               updated_at: new Date().toISOString(),
             })
             .eq('id', state.agency.id)
@@ -174,8 +296,9 @@ export const useAuthStore = create<AuthStore>()(
             return { success: false, error: error.message }
           }
 
+          // Only update state if the update was successful
           set((state) => ({
-            agency: state.agency ? { ...state.agency, ...updates } : null,
+            agency: state.agency ? { ...state.agency, ...filteredUpdates } : null,
           }))
 
           return { success: true }
