@@ -26,25 +26,39 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
     }
     
     const canvas = await html2canvas(input, {
-      scale: 1.5, // Reduced from 2 for better performance
+      scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
       allowTaint: true,
-      height: input.scrollHeight,
-      width: input.scrollWidth,
-      removeContainer: true,
-      imageTimeout: 5000
+      height: Math.max(input.scrollHeight, input.offsetHeight),
+      width: Math.max(input.scrollWidth, input.offsetWidth),
+      removeContainer: false,
+      imageTimeout: 10000,
+      onclone: (clonedDoc) => {
+        // Ensure all content is visible in the cloned document
+        const clonedElement = clonedDoc.querySelector('.contract-preview-container') as HTMLElement
+        if (clonedElement) {
+          clonedElement.style.height = 'auto'
+          clonedElement.style.minHeight = 'auto'
+          clonedElement.style.overflow = 'visible'
+          clonedElement.style.maxHeight = 'none'
+        }
+      }
     })
     
-    const imgData = canvas.toDataURL('image/jpeg', 0.8) // Use JPEG with compression
+    const imgData = canvas.toDataURL('image/png', 1.0) // Use PNG for better quality
     const pdf = new jsPDF('p', 'mm', 'a4')
     const imgWidth = 210
     const pageHeight = 297
-    const imgHeight = canvas.height * imgWidth / canvas.width
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
     let heightLeft = imgHeight
     let position = 0
     let pageCount = 0
+    
+    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height)
+    console.log('PDF image dimensions:', imgWidth, 'x', imgHeight)
+    console.log('Pages needed:', Math.ceil(imgHeight / pageHeight))
 
     // Helper function to add logo to current page
     const addLogoToPage = async () => {

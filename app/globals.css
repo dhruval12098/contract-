@@ -90,6 +90,27 @@
     will-change: transform;
   }
 
+  /* PDF generation optimizations */
+  .contract-preview-container * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .contract-preview-container img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Ensure content is visible during PDF generation */
+  @media print {
+    .contract-preview-container {
+      height: auto !important;
+      overflow: visible !important;
+      page-break-inside: avoid;
+    }
+  }
+
   /* Reduce motion for users who prefer it */
   @media (prefers-reduced-motion: reduce) {
     .animate-in,

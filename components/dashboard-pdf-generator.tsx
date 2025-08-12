@@ -25,12 +25,15 @@ export const generateDashboardPDF = async (
     tempContainer.style.left = '-9999px'
     tempContainer.style.top = '-9999px'
     tempContainer.style.width = '800px'
+    tempContainer.style.minHeight = '1000px'
     tempContainer.style.backgroundColor = 'white'
     tempContainer.style.padding = '32px'
-    tempContainer.style.fontFamily = 'system-ui, -apple-system, sans-serif'
+    tempContainer.style.fontFamily = 'Times, serif'
     tempContainer.style.lineHeight = '1.6'
     tempContainer.style.color = '#000'
     tempContainer.style.fontSize = '14px'
+    tempContainer.style.overflow = 'visible'
+    tempContainer.style.height = 'auto'
     
     document.body.appendChild(tempContainer)
     
@@ -41,29 +44,49 @@ export const generateDashboardPDF = async (
       agency: agency 
     }))
     
-    // Wait for rendering to complete
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // Wait for rendering to complete and ensure all content is loaded
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Ensure the container has the proper height
+    const contractElement = tempContainer.querySelector('.contract-preview-container')
+    if (contractElement) {
+      const rect = contractElement.getBoundingClientRect()
+      tempContainer.style.height = Math.max(rect.height, 1000) + 'px'
+    }
     
     // Generate PDF from the rendered content
     const canvas = await html2canvas(tempContainer, {
-      scale: 1.5,
+      scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
       allowTaint: true,
-      height: tempContainer.scrollHeight,
-      width: tempContainer.scrollWidth,
-      removeContainer: true,
-      imageTimeout: 5000
+      height: Math.max(tempContainer.scrollHeight, tempContainer.offsetHeight, 1000),
+      width: Math.max(tempContainer.scrollWidth, tempContainer.offsetWidth, 800),
+      removeContainer: false,
+      imageTimeout: 10000,
+      onclone: (clonedDoc) => {
+        // Ensure all styles are applied to the cloned document
+        const clonedContainer = clonedDoc.querySelector('div') as HTMLElement
+        if (clonedContainer) {
+          clonedContainer.style.height = 'auto'
+          clonedContainer.style.minHeight = '1000px'
+          clonedContainer.style.overflow = 'visible'
+        }
+      }
     })
     
-    const imgData = canvas.toDataURL('image/jpeg', 0.8)
+    const imgData = canvas.toDataURL('image/png', 1.0) // Use PNG for better quality
     const pdf = new jsPDF('p', 'mm', 'a4')
     const imgWidth = 210
     const pageHeight = 297
-    const imgHeight = canvas.height * imgWidth / canvas.width
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
     let heightLeft = imgHeight
     let position = 0
+    
+    console.log('Dashboard PDF - Canvas dimensions:', canvas.width, 'x', canvas.height)
+    console.log('Dashboard PDF - PDF image dimensions:', imgWidth, 'x', imgHeight)
+    console.log('Dashboard PDF - Pages needed:', Math.ceil(imgHeight / pageHeight))
 
     // Helper function to add logo to current page
     const addLogoToPage = async () => {

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle } from "lucide-react"
+import { Plus, Search, Filter, Download, Edit, Copy, Trash2, FileText, Users, Clock, CheckCircle, Link } from "lucide-react"
 import { generateDashboardPDF } from "@/components/dashboard-pdf-generator"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/store/auth-store"
@@ -18,6 +18,7 @@ import { ContractPreview } from "@/components/contract-preview"
 import { Agency } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabaseClient"
 
 type Status = "draft" | "review" | "signed" | "completed";
 
@@ -37,13 +38,103 @@ const statusIcons: Record<Status, React.ComponentType<any>> = {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { contracts, duplicateContract, deleteContract, loadContracts, isLoading } = useContractStore()
+  const { contracts, duplicateContract, deleteContract, loadContracts, isLoading, generateShareableLink } = useContractStore()
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const { isAuthenticated, checkAuth, agency, isHydrated } = useAuthStore()
 
   const [contractToDownload, setContractToDownload] = useState<ContractData | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [generatingLinkFor, setGeneratingLinkFor] = useState<string | null>(null)
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false)
+
+  // Function to generate shareable link for existing contracts
+  const handleGenerateLink = async (contract: ContractData) => {
+    if (!contract.id) return
+    
+    setGeneratingLinkFor(contract.id)
+    try {
+      // Generate the shareable link
+      const shareableLink = generateShareableLink(contract.id)
+      
+      // Update the contract directly in the database
+      const { error } = await supabase
+        .from('contracts')
+        .update({ 
+          shareable_link: shareableLink,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', contract.id)
+      
+      if (error) {
+        toast.error("Failed to generate shareable link: " + error.message)
+      } else {
+        toast.success("Shareable link generated successfully!")
+        // Reload contracts to get the updated data
+        await loadContracts()
+      }
+    } catch (error) {
+      console.error("Error generating shareable link:", error)
+      toast.error("Error generating shareable link")
+    } finally {
+      setGeneratingLinkFor(null)
+    }
+  }
+
+  // Function to generate shareable links for all contracts that don't have them
+  const handleBulkGenerateLinks = async () => {
+    const contractsWithoutLinks = contracts.filter(contract => !contract.shareableLink && contract.id)
+    
+    if (contractsWithoutLinks.length === 0) {
+      toast.info("All contracts already have shareable links!")
+      return
+    }
+
+    setIsBulkGenerating(true)
+    let successCount = 0
+    let errorCount = 0
+
+    try {
+      for (const contract of contractsWithoutLinks) {
+        try {
+          const shareableLink = generateShareableLink(contract.id!)
+          
+          // Update the contract directly in the database
+          const { error } = await supabase
+            .from('contracts')
+            .update({ 
+              shareable_link: shareableLink,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', contract.id)
+          
+          if (error) {
+            console.error(`Database error for contract ${contract.id}:`, error)
+            errorCount++
+          } else {
+            successCount++
+          }
+        } catch (error) {
+          console.error(`Error generating link for contract ${contract.id}:`, error)
+          errorCount++
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Generated ${successCount} shareable links successfully!`)
+        await loadContracts() // Reload to get updated data
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`Failed to generate ${errorCount} links`)
+      }
+    } catch (error) {
+      console.error("Error in bulk generate:", error)
+      toast.error("Error generating shareable links")
+    } finally {
+      setIsBulkGenerating(false)
+    }
+  }
 
   // Check authentication on component mount
   useEffect(() => {
@@ -209,6 +300,24 @@ export default function DashboardPage() {
                   <DropdownMenuItem onClick={() => setStatusFilter("completed")}>Completed</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button 
+                variant="outline" 
+                onClick={handleBulkGenerateLinks}
+                disabled={isBulkGenerating || contracts.filter(c => !c.shareableLink).length === 0}
+                className="flex items-center gap-2"
+              >
+                {isBulkGenerating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Link className="h-4 w-4" />
+                    Generate All Links
+                  </>
+                )}
+              </Button>
             </div>
           </CardHeader>
 
@@ -272,7 +381,7 @@ export default function DashboardPage() {
                                 className="text-blue-600 hover:underline truncate max-w-xs"
                                 title={contract.shareableLink}
                               >
-                                {contract.shareableLink}
+                                {contract.shareableLink.substring(contract.shareableLink.lastIndexOf('/') - 15)}
                               </a>
                               <Button
                                 variant="ghost"
@@ -281,12 +390,31 @@ export default function DashboardPage() {
                                   navigator.clipboard.writeText(contract.shareableLink!)
                                   toast.success("Link copied to clipboard!")
                                 }}
+                                title="Copy link"
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground">Not generated</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleGenerateLink(contract)}
+                              disabled={generatingLinkFor === contract.id}
+                              className="flex items-center gap-2"
+                            >
+                              {generatingLinkFor === contract.id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Link className="h-4 w-4" />
+                                  Generate Link
+                                </>
+                              )}
+                            </Button>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
@@ -302,6 +430,26 @@ export default function DashboardPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 View/Edit
                               </DropdownMenuItem>
+                              {!contract.shareableLink && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleGenerateLink(contract)}
+                                  disabled={generatingLinkFor === contract.id}
+                                >
+                                  <Link className="mr-2 h-4 w-4" />
+                                  {generatingLinkFor === contract.id ? 'Generating Link...' : 'Generate Link'}
+                                </DropdownMenuItem>
+                              )}
+                              {contract.shareableLink && (
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(contract.shareableLink!)
+                                    toast.success("Link copied to clipboard!")
+                                  }}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Copy Link
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => contract.id && duplicateContract(contract.id)}>
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate

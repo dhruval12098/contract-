@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useContractStore } from "@/store/contract-store"
+import { useAuthStore } from "@/store/auth-store"
 import { ContractPreview } from "@/components/contract-preview"
 import { useParams } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
@@ -17,6 +18,7 @@ export default function ContractSigningPage() {
   const params = useParams()
   const contractId = params.id as string
   const { contracts, loadContract, currentContract } = useContractStore()
+  const { agency } = useAuthStore()
   const [signatureMethod, setSignatureMethod] = useState<"upload" | "draw" | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
@@ -143,7 +145,7 @@ export default function ContractSigningPage() {
               </CardHeader>
               <CardContent>
                 <div className="max-h-96 overflow-y-auto">
-                  <ContractPreview contract={contract} />
+                  <ContractPreview contract={contract} agency={agency} />
                 </div>
               </CardContent>
             </Card>
