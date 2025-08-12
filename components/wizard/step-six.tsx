@@ -2,14 +2,13 @@
 
 import type React from "react"
 import { motion, Variants } from "framer-motion"
-import { Edit, Eye, PenTool, CheckCircle, Upload, X } from "lucide-react"
+import { Edit, Eye, PenTool, CheckCircle, Upload, X, File } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useContractStore } from "@/store/contract-store"
 import { useState, useRef } from "react"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -40,13 +39,12 @@ export function StepSix() {
   const [signatureMethod, setSignatureMethod] = useState<"draw" | "upload" | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
 
   const handleSaveContract = async () => {
     const { success, error } = await saveContract()
     if (success) {
       toast.success("Contract saved successfully!")
-      router.push("/contract/step-seven") // Navigate to next step
+      setCurrentStep(7) // Navigate to Step Seven within the wizard flow
     } else {
       toast.error(error || "Failed to save contract")
     }
@@ -140,108 +138,44 @@ export function StepSix() {
     }
   }
 
-  const handleEditSignature = async () => {
-    const { success, error } = await resetAgencySignature()
-    if (success) {
-      setShowSignature(true)
-      setSignatureMethod(null)
-      clearSignature()
-      toast.info("Signature cleared. You can now re-sign the contract.")
-    } else {
-      toast.error(error || "Failed to reset signature")
-    }
-  }
-
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }}>
         <h3 className="text-lg font-semibold mb-2">Review & Sign</h3>
         <p className="text-muted-foreground mb-6">
-          Review your contract details and sign as the agency before sharing with the client.
+          Review your contract details and add your signature.
         </p>
       </motion.div>
 
-      {/* Contract Summary */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Contract Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Type:</span>
-                <p className="text-muted-foreground capitalize">{currentContract.type} Contract</p>
-              </div>
-              <div>
-                <span className="font-medium">Project:</span>
-                <p className="text-muted-foreground">{currentContract.projectTitle || "Untitled"}</p>
-              </div>
-              <div>
-                <span className="font-medium">Client:</span>
-                <p className="text-muted-foreground">{currentContract.clientName || "Not specified"}</p>
-              </div>
-              <div>
-                <span className="font-medium">Value:</span>
-                <p className="text-muted-foreground">${currentContract.paymentAmount?.toLocaleString() || "0"}</p>
-              </div>
-              <div>
-                <span className="font-medium">Start Date:</span>
-                <p className="text-muted-foreground">
-                  {currentContract.startDate ? new Date(currentContract.startDate).toLocaleDateString() : "Not set"}
-                </p>
-              </div>
-              <div>
-                <span className="font-medium">Clauses:</span>
-                <p className="text-muted-foreground">{currentContract.clauses?.length || 0} selected</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Agency Signature */}
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} transition={{ duration: 0.4, ease: "easeOut" }}>
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              {currentContract.agencySignature ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <PenTool className="h-5 w-5" />
-              )}
-              Agency Signature
+              <File className="h-4 w-4" />
+              Sign as Agency
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {currentContract.agencySignature ? (
-              <div className="space-y-3">
-                <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">Contract Signed</span>
-                  </div>
-                  <p className="text-xs text-green-600 dark:text-green-400">
-                    Signed on {new Date(currentContract.agencySignedAt!).toLocaleString()}
-                  </p>
-                </div>
-                <div className="border rounded-lg p-4 bg-white">
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex items-center justify-center">
                   <img
-                    src={currentContract.agencySignature || "/placeholder.svg"}
+                    src={currentContract.agencySignature}
                     alt="Agency Signature"
-                    className="max-w-xs max-h-24 object-contain"
+                    className="max-h-24 object-contain"
                   />
                 </div>
-                <Button onClick={handleEditSignature} variant="outline" className="w-full">
-                  <PenTool className="mr-2 h-4 w-4" />
-                  Edit Signature
+                <Button
+                  onClick={handleEditDetails}
+                  variant="outline"
+                  className="w-full bg-transparent"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Details & Signature
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Sign the contract as {currentContract.agencyName || "the agency"} before sharing with the client.
-                </p>
+              <div className="space-y-4">
                 {!showSignature ? (
                   <Button onClick={() => setShowSignature(true)} className="w-full">
                     <PenTool className="mr-2 h-4 w-4" />
