@@ -14,6 +14,7 @@ interface PDFGeneratorProps {
 
 // Import the enhanced PDF generator
 import { generateEnhancedPDF } from "./enhanced-pdf-generator"
+import { generateIOSCompatiblePDF } from "./ios-pdf-generator"
 import { useContractStore } from "@/store/contract-store"
 
 // Export the utility function directly - now uses enhanced generator
@@ -35,8 +36,17 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
       return
     }
     
-    // Use the enhanced PDF generator
-    await generateEnhancedPDF(contractId, contract, agency, onGenerating)
+    // Detect iOS and use appropriate PDF generator
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    
+    if (isIOS) {
+      console.log('iOS detected, using text-based PDF generator')
+      await generateIOSCompatiblePDF(contractId, contract, agency, onGenerating)
+    } else {
+      console.log('Non-iOS device, using enhanced PDF generator')
+      await generateEnhancedPDF(contractId, contract, agency, onGenerating)
+    }
   } catch (error) {
     console.error("Error generating PDF:", error)
     toast.error("Failed to generate PDF", { 
