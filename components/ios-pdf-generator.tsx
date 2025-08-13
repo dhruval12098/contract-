@@ -47,7 +47,7 @@ export const generateIOSCompatiblePDF = async (
     await addWatermark()
     
     // Helper function to add text with word wrapping
-    const addText = (text: string, fontSize: number = 12, isBold: boolean = false, isCenter: boolean = false) => {
+    const addText = async (text: string, fontSize: number = 12, isBold: boolean = false, isCenter: boolean = false) => {
       pdf.setFontSize(fontSize)
       if (isBold) {
         pdf.setFont("helvetica", "bold")
@@ -84,71 +84,72 @@ export const generateIOSCompatiblePDF = async (
     }
     
     // Header
-    addText(contract.type === "client" ? contract.projectTitle?.toUpperCase() || "CONTRACT" : "EMPLOYMENT CONTRACT", 18, true, true)
-    addText(`Contract No: ${contractId}`, 10, false, true)
+    await addText(contract.type === "client" ? contract.projectTitle?.toUpperCase() || "CONTRACT" : "EMPLOYMENT CONTRACT", 18, true, true)
+    await addText(`Contract No: ${contractId}`, 10, false, true)
     currentY += 5
     await addLine()
     
     // Parties Section
-    addText("PARTIES", 14, true)
-    addText(`${contract.type === "client" ? "SERVICE PROVIDER" : "EMPLOYER"}:`)
-    addText(`${agency?.name || contract.agencyName || "[Agency Name]"}`)
-    addText(`${agency?.email || contract.agencyEmail || "[Agency Email]"}`)
+    await addText("PARTIES", 14, true)
+    await addText(`${contract.type === "client" ? "SERVICE PROVIDER" : "EMPLOYER"}:`)
+    await addText(`${agency?.name || contract.agencyName || "[Agency Name]"}`)
+    await addText(`${agency?.email || contract.agencyEmail || "[Agency Email]"}`)
     currentY += 3
     
-    addText(`${contract.type === "client" ? "CLIENT" : "EMPLOYEE"}:`)
-    addText(`${contract.clientName || "[Client/Employee Name]"}`)
-    addText(`${contract.clientEmail || "[Client/Employee Email]"}`)
+    await addText(`${contract.type === "client" ? "CLIENT" : "EMPLOYEE"}:`)
+    await addText(`${contract.clientName || "[Client/Employee Name]"}`)
+    await addText(`${contract.clientEmail || "[Client/Employee Email]"}`)
     currentY += 5
     await addLine()
     
     // Project/Position Details
-    addText(contract.type === "client" ? "PROJECT DETAILS" : "POSITION DETAILS", 14, true)
-    addText(`${contract.type === "client" ? "Project Title" : "Position Title"}: ${contract.projectTitle || "[Not specified]"}`)
-    addText(`Description: ${contract.projectDescription || "[Not specified]"}`)
-    addText(`Start Date: ${contract.startDate ? new Date(contract.startDate).toLocaleDateString() : "[Not specified]"}`)
-    addText(`${contract.type === "client" ? "Completion Date" : "End Date"}: ${contract.endDate ? new Date(contract.endDate).toLocaleDateString() : "[Not specified]"}`)
+    await addText(contract.type === "client" ? "PROJECT DETAILS" : "POSITION DETAILS", 14, true)
+    await addText(`${contract.type === "client" ? "Project Title" : "Position Title"}: ${contract.projectTitle || "[Not specified]"}`)
+    await addText(`Description: ${contract.projectDescription || "[Not specified]"}`)
+    await addText(`Start Date: ${contract.startDate ? new Date(contract.startDate).toLocaleDateString() : "[Not specified]"}`)
+    await addText(`${contract.type === "client" ? "Completion Date" : "End Date"}: ${contract.endDate ? new Date(contract.endDate).toLocaleDateString() : "[Not specified]"}`)
     currentY += 5
     await addLine()
     
     // Scope/Responsibilities
-    addText(contract.type === "client" ? "SCOPE OF WORK" : "RESPONSIBILITIES", 14, true)
+    await addText(contract.type === "client" ? "SCOPE OF WORK" : "RESPONSIBILITIES", 14, true)
     if (contract.scope && contract.scope.length > 0) {
-      contract.scope.forEach((item, index) => {
-        addText(`${index + 1}. ${item}`)
-      })
+      for (let i = 0; i < contract.scope.length; i++) {
+        await addText(`${i + 1}. ${contract.scope[i]}`)
+      }
     } else {
-      addText("No scope items defined")
+      await addText("No scope items defined")
     }
     currentY += 5
     await addLine()
     
     // Payment Terms
-    addText(contract.type === "client" ? "PAYMENT TERMS" : "COMPENSATION", 14, true)
+    await addText(contract.type === "client" ? "PAYMENT TERMS" : "COMPENSATION", 14, true)
     const amount = contract.paymentAmount ? new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
     }).format(contract.paymentAmount) : "₹0.00"
-    addText(`${contract.type === "client" ? "Total Project Value" : "Compensation"}: ${amount}`)
-    addText(`Payment Schedule: ${contract.paymentTerms || "[Not specified]"}`)
+    await addText(`${contract.type === "client" ? "Total Project Value" : "Compensation"}: ${amount}`)
+    await addText(`Payment Schedule: ${contract.paymentTerms || "[Not specified]"}`)
     currentY += 5
     await addLine()
     
     // Clauses
     if (contract.clauses && contract.clauses.length > 0) {
-      addText("TERMS AND CONDITIONS", 14, true)
-      contract.clauses.forEach((clause, index) => {
+      await addText("TERMS AND CONDITIONS", 14, true)
+      for (let i = 0; i < contract.clauses.length; i++) {
+        const clause = contract.clauses[i]
         const safeClause = typeof clause === "object" && clause !== null ? clause : { title: String(clause), description: String(clause) }
-        addText(`${index + 1}. ${safeClause.title || `Clause ${index + 1}`}`, 12, true)
-        addText(`${safeClause.description || safeClause.title || "No description provided"}`)
+        await addText(`${i + 1}. ${safeClause.title || `Clause ${i + 1}`}`, 12, true)
+        await addText(`${safeClause.description || safeClause.title || "No description provided"}`)
         currentY += 2
-      })
+      }
       currentY += 5
       await addLine()
     }
     
     // Signatures Section
-    addText("SIGNATURES", 14, true)
+    await addText("SIGNATURES", 14, true)
     currentY += 10
     
     // Helper function to add signature image
@@ -179,11 +180,11 @@ export const generateIOSCompatiblePDF = async (
     }
     
     if (!agencySignatureAdded) {
-      addText("_".repeat(30))
+      await addText("_".repeat(30))
     }
-    addText(`${contract.agencyName || "[Agency Name]"}`, 10, true)
-    addText("Service Provider / Employer", 9)
-    addText(`Date: ${contract.agencySignedAt ? new Date(contract.agencySignedAt).toLocaleDateString() : "_______________"}`, 9)
+    await addText(`${contract.agencyName || "[Agency Name]"}`, 10, true)
+    await addText("Service Provider / Employer", 9)
+    await addText(`Date: ${contract.agencySignedAt ? new Date(contract.agencySignedAt).toLocaleDateString() : "_______________"}`, 9)
     
     currentY += 15
     
@@ -194,18 +195,18 @@ export const generateIOSCompatiblePDF = async (
     }
     
     if (!clientSignatureAdded) {
-      addText("_".repeat(30))
+      await addText("_".repeat(30))
     }
-    addText(`${contract.clientName || "[Client/Employee Name]"}`, 10, true)
-    addText("Client / Employee", 9)
-    addText(`Date: ${contract.clientSignedAt ? new Date(contract.clientSignedAt).toLocaleDateString() : "_______________"}`, 9)
+    await addText(`${contract.clientName || "[Client/Employee Name]"}`, 10, true)
+    await addText("Client / Employee", 9)
+    await addText(`Date: ${contract.clientSignedAt ? new Date(contract.clientSignedAt).toLocaleDateString() : "_______________"}`, 9)
     
     currentY += 10
     await addLine()
     
     // Footer
-    addText("This contract is legally binding upon signature by both parties.", 8, false, true)
-    addText(`Generated by ${agency?.name || contract.agencyName || "ContractAI"} on ${new Date().toLocaleDateString()}`, 8, false, true)
+    await addText("This contract is legally binding upon signature by both parties.", 8, false, true)
+    await addText(`Generated by ${agency?.name || contract.agencyName || "ContractAI"} on ${new Date().toLocaleDateString()}`, 8, false, true)
     
     // Save the PDF
     const fileName = `contract-${contract.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contractId}.pdf`
