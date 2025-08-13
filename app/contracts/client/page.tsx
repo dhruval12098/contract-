@@ -108,7 +108,7 @@ export default function ClientContractsPage() {
           let position = 0
           let pageCount = 0
 
-          // Helper function to add logo to current page
+          // Helper function to add logo to current page (centered on each page)
           const addLogoToPage = async () => {
             if (agency?.logo) {
               try {
@@ -122,9 +122,9 @@ export default function ClientContractsPage() {
                   logoImg.src = agency.logo!
                 })
                 
-                // Calculate logo size and position (centered, with opacity)
-                const maxLogoWidth = 60 // mm
-                const maxLogoHeight = 60 // mm
+                // Calculate logo size (centered, with opacity)
+                const maxLogoWidth = 80 // mm - increased size for better visibility
+                const maxLogoHeight = 80 // mm
                 const logoAspectRatio = logoImg.width / logoImg.height
                 
                 let logoWidth = maxLogoWidth
@@ -135,14 +135,17 @@ export default function ClientContractsPage() {
                   logoWidth = maxLogoHeight * logoAspectRatio
                 }
                 
-                // Center the logo on the page
+                // Center the logo on the current page (not affected by content position)
                 const logoX = (imgWidth - logoWidth) / 2
                 const logoY = (pageHeight - logoHeight) / 2
                 
-                // Add logo with low opacity as watermark
+                // Add logo with low opacity as watermark BEFORE content
                 pdf.saveGraphicsState()
-                pdf.setGState({ opacity: 0.1 } as any)
-                pdf.addImage(agency.logo, 'PNG', logoX, logoY, logoWidth, logoHeight)
+                pdf.setGState({ opacity: 0.15 } as any) // Slightly higher opacity for better visibility
+                
+                // Detect image format from the logo URL
+                const imageFormat = agency.logo.toLowerCase().includes('.jpg') || agency.logo.toLowerCase().includes('.jpeg') ? 'JPEG' : 'PNG'
+                pdf.addImage(agency.logo, imageFormat, logoX, logoY, logoWidth, logoHeight)
                 pdf.restoreGraphicsState()
               } catch (error) {
                 console.warn('Failed to add logo to PDF:', error)
@@ -150,9 +153,9 @@ export default function ClientContractsPage() {
             }
           }
 
-          // Add first page
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+          // Add first page - logo first, then content
           await addLogoToPage()
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
           pageCount++
           heightLeft -= pageHeight
 
@@ -160,8 +163,9 @@ export default function ClientContractsPage() {
           while (heightLeft >= 0) {
             position = heightLeft - imgHeight
             pdf.addPage()
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+            // Add logo to each new page BEFORE adding content
             await addLogoToPage()
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
             pageCount++
             heightLeft -= pageHeight
           }

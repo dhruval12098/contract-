@@ -8,11 +8,8 @@ import { ContractPreview } from "@/components/contract-preview"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 import { useAuthStore } from "@/store/auth-store"
 import { ContractData } from "@/store/contract-store"
-import { Agency } from "@/store/auth-store"
 
 export default function ContractViewPage() {
   const params = useParams()
@@ -47,93 +44,21 @@ export default function ContractViewPage() {
   const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      const input = document.querySelector('.contract-preview-container') as HTMLElement | null
-      if (!input) {
-        console.error('Contract preview container not found')
+      // Import the enhanced PDF generator
+      const { generateEnhancedPDF } = await import("@/components/enhanced-pdf-generator")
+      
+      if (!contract || !contract.id) {
+        const toast = (await import("sonner")).toast
+        toast.error("Contract data not available")
         return
       }
       
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        allowTaint: true,
-        height: input.scrollHeight,
-        width: input.scrollWidth
-      })
-      
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210
-      const pageHeight = 297
-      const imgHeight = canvas.height * imgWidth / canvas.width
-      let heightLeft = imgHeight
-      let position = 0
-      let pageCount = 0
-
-      // Helper function to add logo to current page
-      const addLogoToPage = async () => {
-        if (agency?.logo) {
-          try {
-            // Create a temporary image element to get logo dimensions
-            const logoImg = new Image()
-            logoImg.crossOrigin = 'anonymous'
-            
-            await new Promise((resolve, reject) => {
-              logoImg.onload = resolve
-              logoImg.onerror = reject
-              logoImg.src = agency.logo!
-            })
-            
-            // Calculate logo size and position (centered, with opacity)
-            const maxLogoWidth = 60 // mm
-            const maxLogoHeight = 60 // mm
-            const logoAspectRatio = logoImg.width / logoImg.height
-            
-            let logoWidth = maxLogoWidth
-            let logoHeight = maxLogoWidth / logoAspectRatio
-            
-            if (logoHeight > maxLogoHeight) {
-              logoHeight = maxLogoHeight
-              logoWidth = maxLogoHeight * logoAspectRatio
-            }
-            
-            // Center the logo on the page
-            const logoX = (imgWidth - logoWidth) / 2
-            const logoY = (pageHeight - logoHeight) / 2
-            
-            // Add logo with low opacity as watermark
-            pdf.saveGraphicsState()
-            pdf.setGState({ opacity: 0.1 } as any)
-            pdf.addImage(agency.logo, 'PNG', logoX, logoY, logoWidth, logoHeight)
-            pdf.restoreGraphicsState()
-          } catch (error) {
-            console.warn('Failed to add logo to PDF:', error)
-          }
-        }
-      }
-
-      // Add first page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      await addLogoToPage()
-      pageCount++
-      heightLeft -= pageHeight
-
-      // Add additional pages if needed
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-        await addLogoToPage()
-        pageCount++
-        heightLeft -= pageHeight
-      }
-      
-      const fileName = `contract-${contract?.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contract.id || 'preview'}.pdf`
-      pdf.save(fileName)
+      // Use the enhanced PDF generator
+      await generateEnhancedPDF(contract.id, contract, agency, setIsDownloading)
     } catch (error) {
       console.error('Error generating PDF:', error)
+      const toast = (await import("sonner")).toast
+      toast.error("Failed to generate PDF")
     } finally {
       setIsDownloading(false)
     }

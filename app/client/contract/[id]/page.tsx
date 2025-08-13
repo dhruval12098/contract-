@@ -220,8 +220,8 @@ export default function ClientContractPage() {
   const handleDownload = useCallback(async () => {
     if (isDownloading) return
     
-    await generatePDF(contractId, contract?.projectTitle, setIsDownloading)
-  }, [isDownloading, contractId, contract?.projectTitle])
+    await generatePDF(contractId, contract?.projectTitle, setIsDownloading, agency)
+  }, [isDownloading, contractId, contract?.projectTitle, agency])
 
   // Show loading while hydrating or loading contract
   if (!isHydrated || isLoading) {
@@ -442,7 +442,11 @@ export default function ClientContractPage() {
                 <CardTitle>Contract Details</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="max-h-96 overflow-y-auto contract-preview-container">
+                <div className="max-h-96 overflow-y-auto">
+                  {contract && agency && <ContractPreview contract={contract} agency={agency} />}
+                </div>
+                {/* Hidden full contract for PDF generation */}
+                <div className="contract-preview-container" style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm', backgroundColor: 'white', padding: '20mm' }}>
                   {contract && agency && <ContractPreview contract={contract} agency={agency} />}
                 </div>
               </CardContent>
