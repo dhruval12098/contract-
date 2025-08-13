@@ -32,10 +32,11 @@ export default function ContractViewPage() {
   useEffect(() => {
     // Sync editableContract with the loaded contract when not in edit mode
     if (!isEditing) {
-      const loadedContract = contractId === "new-contract" ? currentContract : contracts.find((c) => c.id === contractId) || currentContract
-      setEditableContract(loadedContract)
+      // Always use currentContract as it has the complete data loaded by loadContract()
+      // The contracts array from loadContracts() doesn't include scope and clauses
+      setEditableContract(currentContract)
     }
-  }, [contracts, currentContract, contractId, isEditing])
+  }, [currentContract, isEditing])
 
   const contract: ContractData = editableContract
   

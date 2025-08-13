@@ -331,31 +331,47 @@ export const useContractStore = create<ContractStore>()(
             return { success: false, error: error.message }
           }
 
-          // Convert to ContractData format
-          const contracts: ContractData[] = data.map(item => ({
-            id: item.id,
-            type: item.type as "client" | "hiring" | "",
-            clientName: item.client_name,
-            clientEmail: item.client_email,
-            agencyName: item.agency_name,
-            agencyEmail: item.agency_email,
-            projectTitle: item.project_title,
-            projectDescription: item.project_description,
-            scope: [],
-            paymentAmount: item.payment_amount,
-            paymentTerms: item.payment_terms,
-            startDate: item.start_date,
-            endDate: item.end_date,
-            clauses: [],
-            status: item.status as "draft" | "review" | "signed" | "completed",
-            createdAt: item.created_at,
-            updatedAt: item.updated_at,
-            agencySignature: item.agency_signature,
-            agencySignedAt: item.agency_signed_at,
-            clientSignature: item.client_signature,
-            clientSignedAt: item.client_signed_at,
-            shareableLink: item.shareable_link,
-          }))
+          // Load scope and clauses for all contracts
+          const contracts: ContractData[] = await Promise.all(
+            data.map(async (item) => {
+              // Load scope items for this contract
+              const { data: scopeData } = await supabase
+                .from('contract_scopes')
+                .select('scope_item')
+                .eq('contract_id', item.id)
+
+              // Load clauses for this contract
+              const { data: clausesData } = await supabase
+                .from('contract_clauses')
+                .select('title, description')
+                .eq('contract_id', item.id)
+
+              return {
+                id: item.id,
+                type: item.type as "client" | "hiring" | "",
+                clientName: item.client_name,
+                clientEmail: item.client_email,
+                agencyName: item.agency_name,
+                agencyEmail: item.agency_email,
+                projectTitle: item.project_title,
+                projectDescription: item.project_description,
+                scope: scopeData ? scopeData.map(s => s.scope_item) : [],
+                paymentAmount: item.payment_amount,
+                paymentTerms: item.payment_terms,
+                startDate: item.start_date,
+                endDate: item.end_date,
+                clauses: clausesData ? clausesData.map(c => ({ title: c.title, description: c.description })) : [],
+                status: item.status as "draft" | "review" | "signed" | "completed",
+                createdAt: item.created_at,
+                updatedAt: item.updated_at,
+                agencySignature: item.agency_signature,
+                agencySignedAt: item.agency_signed_at,
+                clientSignature: item.client_signature,
+                clientSignedAt: item.client_signed_at,
+                shareableLink: item.shareable_link,
+              }
+            })
+          )
 
           set({
             contracts,

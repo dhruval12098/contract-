@@ -210,11 +210,11 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
       </div>
 
       {/* Scope/Responsibilities */}
-      {safeContract.scope && safeContract.scope.length > 0 && (
-        <div className="mb-6 relative z-10">
-          <h2 className="text-lg font-semibold mb-3 uppercase">
-            {safeContract.type === "client" ? "Scope of Work" : "Responsibilities"}
-          </h2>
+      <div className="mb-6 relative z-10">
+        <h2 className="text-lg font-semibold mb-3 uppercase">
+          {safeContract.type === "client" ? "Scope of Work" : "Responsibilities"}
+        </h2>
+        {safeContract.scope && safeContract.scope.length > 0 ? (
           <ul className="list-disc list-inside space-y-1">
             {isEditing ? (
               safeContract.scope.map((item, index) => (
@@ -233,23 +233,25 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
               ))
             )}
           </ul>
-          {isEditing && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleScopeUpdate(safeContract.scope.length, '')}
-              className="mt-2"
-            >
-              Add Scope Item
-            </Button>
-          )}
-        </div>
-      )}
+        ) : (
+          !isEditing && <p className="text-muted-foreground italic">No scope items defined</p>
+        )}
+        {isEditing && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleScopeUpdate(safeContract.scope.length, '')}
+            className="mt-2"
+          >
+            Add Scope Item
+          </Button>
+        )}
+      </div>
 
       {/* Clauses */}
-      {safeContract.clauses && safeContract.clauses.length > 0 && (
-        <div className="mb-6 relative z-10">
-          <h2 className="text-lg font-semibold mb-3 uppercase">Clauses</h2>
+      <div className="mb-6 relative z-10">
+        <h2 className="text-lg font-semibold mb-3 uppercase">Clauses</h2>
+        {safeContract.clauses && safeContract.clauses.length > 0 ? (
           <div className="space-y-4">
             {isEditing ? (
               safeContract.clauses.map((clause, index) => (
@@ -278,18 +280,20 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
               ))
             )}
           </div>
-          {isEditing && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleClauseUpdate(safeContract.clauses.length, 'new')}
-              className="mt-2"
-            >
-              Add Clause
-            </Button>
-          )}
-        </div>
-      )}
+        ) : (
+          !isEditing && <p className="text-muted-foreground italic">No clauses defined</p>
+        )}
+        {isEditing && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleClauseUpdate(safeContract.clauses.length, 'new')}
+            className="mt-2"
+          >
+            Add Clause
+          </Button>
+        )}
+      </div>
 
 
 
