@@ -143,8 +143,8 @@ export default function ContractViewPage() {
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" asChild className="bg-transparent">
               <Link href="/dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Back to Dashboard</span>
               </Link>
             </Button>
             <div>
@@ -157,7 +157,7 @@ export default function ContractViewPage() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 flex-wrap">
             {!isEditing ? (
               <>
                 {canEdit && (
@@ -165,9 +165,10 @@ export default function ContractViewPage() {
                     onClick={() => setIsEditing(true)} 
                     variant="outline" 
                     className="bg-transparent"
+                    size="sm"
                   >
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    Edit
+                    <Edit2 className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-2">Edit</span>
                   </Button>
                 )}
                 <Button 
@@ -175,23 +176,25 @@ export default function ContractViewPage() {
                   variant="outline" 
                   className="bg-transparent"
                   disabled={isDownloading}
+                  size="sm"
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  {isDownloading ? 'Downloading...' : 'Download PDF'}
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-2">{isDownloading ? 'Downloading...' : 'Download PDF'}</span>
                 </Button>
                 {!isContractSigned && (
-                  <Button onClick={handleSendToClient} className="shadow-md hover:shadow-lg transition-shadow">
-                    <Send className="mr-2 h-4 w-4" />
-                    Send for Signing
+                  <Button onClick={handleSendToClient} className="shadow-md hover:shadow-lg transition-shadow" size="sm">
+                    <Send className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-2">Send for Signing</span>
                   </Button>
                 )}
                 {isContractSigned && contract.shareableLink && (
                   <Button 
                     onClick={() => window.open(contract.shareableLink, '_blank')} 
                     className="shadow-md hover:shadow-lg transition-shadow"
+                    size="sm"
                   >
-                    <Send className="mr-2 h-4 w-4" />
-                    View Signed Contract
+                    <Send className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-2">View Signed Contract</span>
                   </Button>
                 )}
               </>
@@ -201,13 +204,14 @@ export default function ContractViewPage() {
                   onClick={handleCancel} 
                   variant="outline" 
                   className="bg-transparent"
+                  size="sm"
                 >
-                  <X className="mr-2 h-4 w-4" />
-                  Cancel
+                  <X className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-2">Cancel</span>
                 </Button>
-                <Button onClick={handleSave} className="shadow-md hover:shadow-lg transition-shadow">
-                  <Save className="mr-2 h-4 w-4" />
-                  Save
+                <Button onClick={handleSave} className="shadow-md hover:shadow-lg transition-shadow" size="sm">
+                  <Save className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-2">Save</span>
                 </Button>
               </>
             )}

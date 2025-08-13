@@ -14,7 +14,14 @@ export const generateEnhancedPDF = async (
 ) => {
   if (onGenerating) onGenerating(true)
   
-  toast.loading("Generating PDF...", { id: "enhanced-download" })
+  // iOS-specific detection for user feedback
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  
+  toast.loading(
+    isIOS ? "Generating PDF... (This may take longer on iOS)" : "Generating PDF...", 
+    { id: "enhanced-download" }
+  )
   
   try {
     // Find the contract preview container - prioritize the actual contract content
@@ -48,8 +55,8 @@ export const generateEnhancedPDF = async (
     containerElement.style.backgroundColor = 'white'
     containerElement.style.color = 'black'
     
-    // Wait a moment for styles to apply
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Wait longer for styles to apply on iOS
+    await new Promise(resolve => setTimeout(resolve, isIOS ? 500 : 100))
 
     // PDF configuration
     const pageWidth = 210 // A4 width in mm
@@ -61,17 +68,20 @@ export const generateEnhancedPDF = async (
     const pageBreakBuffer = 8 // Buffer zone to avoid cutting text mid-line
     const usablePageHeight = pageHeight - topMargin - bottomMargin - pageBreakBuffer // Content area height with buffer
     
-    // Capture the container as canvas with high quality
+    // Use the iOS detection from above
+    
+    // Capture the container as canvas with iOS-optimized settings
     const canvas = await html2canvas(containerElement, {
-      scale: 2, // High resolution for crisp text
+      scale: isIOS ? 1.5 : 2, // Reduced scale for iOS to prevent memory issues
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
       allowTaint: true,
+      foreignObjectRendering: false, // Disable for better iOS compatibility
       height: Math.max(containerElement.scrollHeight, containerElement.offsetHeight),
       width: Math.max(containerElement.scrollWidth, containerElement.offsetWidth, 800),
       removeContainer: false,
-      imageTimeout: 15000,
+      imageTimeout: isIOS ? 30000 : 15000, // Longer timeout for iOS
       onclone: (clonedDoc) => {
         // Ensure all content is visible and properly styled in the cloned document
         const clonedElements = clonedDoc.querySelectorAll('.contract-preview-container')
@@ -84,6 +94,17 @@ export const generateEnhancedPDF = async (
           element.style.backgroundColor = 'white'
           element.style.color = 'black'
           element.style.width = '800px'
+          element.style.webkitTransform = 'translateZ(0)' // Force hardware acceleration on iOS
+          element.style.transform = 'translateZ(0)'
+        })
+        
+        // iOS-specific fixes for images and signatures
+        const images = clonedDoc.querySelectorAll('img')
+        images.forEach((img: any) => {
+          img.style.maxWidth = '100%'
+          img.style.height = 'auto'
+          img.style.webkitTransform = 'translateZ(0)'
+          img.style.transform = 'translateZ(0)'
         })
       }
     })
@@ -93,7 +114,22 @@ export const generateEnhancedPDF = async (
 
     console.log('Canvas captured:', canvas.width, 'x', canvas.height)
 
-    const imgData = canvas.toDataURL('image/png', 1.0)
+    // iOS-compatible image data conversion
+    let imgData: string
+    try {
+      // Try PNG first (better quality)
+      imgData = canvas.toDataURL('image/png', 1.0)
+      
+      // For iOS, if PNG is too large, fallback to JPEG
+      if (isIOS && imgData.length > 10 * 1024 * 1024) { // If larger than 10MB
+        console.log('PNG too large for iOS, converting to JPEG')
+        imgData = canvas.toDataURL('image/jpeg', 0.95)
+      }
+    } catch (error) {
+      console.warn('PNG conversion failed, using JPEG:', error)
+      imgData = canvas.toDataURL('image/jpeg', 0.95)
+    }
+    
     const pdf = new jsPDF('p', 'mm', 'a4')
     
     // Calculate content dimensions with proper margins
@@ -229,7 +265,23 @@ export const generateEnhancedPDF = async (
           0, 0, canvas.width, canvasHeight // Destination rectangle
         )
         
-        const pageImgData = pageCanvas.toDataURL('image/png', 1.0)
+        // iOS-compatible page image conversion
+        let pageImgData: string
+        let imageFormat = 'PNG'
+        try {
+          pageImgData = pageCanvas.toDataURL('image/png', 1.0)
+          
+          // For iOS, check if we need to use JPEG for better compatibility
+          if (isIOS && pageImgData.length > 5 * 1024 * 1024) { // If larger than 5MB
+            console.log(`Page ${pageNumber} - PNG too large for iOS, converting to JPEG`)
+            pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95)
+            imageFormat = 'JPEG'
+          }
+        } catch (error) {
+          console.warn(`Page ${pageNumber} - PNG conversion failed, using JPEG:`, error)
+          pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95)
+          imageFormat = 'JPEG'
+        }
         
         // Add the cropped content to PDF, ensuring it stays within margins
         const contentY = topMargin
@@ -243,8 +295,8 @@ export const generateEnhancedPDF = async (
         const safeContentHeight = Math.min(actualContentHeight, maxContentBottom - contentY)
         
         if (safeContentHeight > 0) {
-          pdf.addImage(pageImgData, 'PNG', leftMargin, contentY, imgWidth, safeContentHeight)
-          console.log(`Page ${pageNumber} - Successfully added content with safe height: ${safeContentHeight}mm`)
+          pdf.addImage(pageImgData, imageFormat, leftMargin, contentY, imgWidth, safeContentHeight)
+          console.log(`Page ${pageNumber} - Successfully added content with safe height: ${safeContentHeight}mm using ${imageFormat}`)
         } else {
           console.warn(`Page ${pageNumber} - No space available for content on this page`)
         }
@@ -254,12 +306,49 @@ export const generateEnhancedPDF = async (
       addPageFooter()
     }
 
-    // Save the PDF
+    // iOS-specific memory cleanup
+    if (isIOS) {
+      // Force garbage collection on iOS by clearing large variables
+      canvas.width = 1
+      canvas.height = 1
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, 1, 1)
+      }
+    }
+
+    // Save the PDF with iOS-compatible filename
     const fileName = `contract-${contract.projectTitle?.replace(/[^a-z0-9]/gi, '_') || contractId}.pdf`
-    pdf.save(fileName)
     
-    console.log(`PDF saved as: ${fileName}`)
-    toast.success("PDF downloaded successfully!", { id: "enhanced-download" })
+    try {
+      pdf.save(fileName)
+      console.log(`PDF saved as: ${fileName}`)
+      toast.success("PDF downloaded successfully!", { id: "enhanced-download" })
+    } catch (saveError) {
+      console.error('PDF save error:', saveError)
+      
+      // iOS fallback: try to open PDF in new tab if save fails
+      if (isIOS) {
+        try {
+          const pdfBlob = pdf.output('blob')
+          const url = URL.createObjectURL(pdfBlob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = fileName
+          link.click()
+          URL.revokeObjectURL(url)
+          toast.success("PDF download initiated!", { id: "enhanced-download" })
+        } catch (blobError) {
+          console.error('Blob fallback failed:', blobError)
+          toast.error("PDF download failed", { 
+            id: "enhanced-download",
+            description: "Please try again or use a different browser"
+          })
+        }
+      } else {
+        throw saveError
+      }
+    }
   } catch (error) {
     console.error("Error generating enhanced PDF:", error)
     toast.error("Failed to generate PDF", { 

@@ -266,10 +266,11 @@ export default function DashboardPage() {
                 <CardTitle>Contracts</CardTitle>
                 <CardDescription>Manage and track all your contracts in one place</CardDescription>
               </div>
-              <Button asChild>
+              <Button asChild size="sm">
                 <a href="/wizard">
                   <Plus className="mr-2 h-4 w-4" />
-                  New Contract
+                  <span className="hidden sm:inline">New Contract</span>
+                  <span className="sm:hidden">New</span>
                 </a>
               </Button>
             </div>
@@ -287,9 +288,9 @@ export default function DashboardPage() {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
+                  <Button variant="outline" size="sm">
                     <Filter className="mr-2 h-4 w-4" />
-                    Status: {statusFilter === "all" ? "All" : statusFilter}
+                    <span className="hidden sm:inline">Status: </span>{statusFilter === "all" ? "All" : statusFilter}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -305,16 +306,17 @@ export default function DashboardPage() {
                 onClick={handleBulkGenerateLinks}
                 disabled={isBulkGenerating || contracts.filter(c => !c.shareableLink).length === 0}
                 className="flex items-center gap-2"
+                size="sm"
               >
                 {isBulkGenerating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    Generating...
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    <span className="hidden sm:inline">Generating...</span>
                   </>
                 ) : (
                   <>
                     <Link className="h-4 w-4" />
-                    Generate All Links
+                    <span className="hidden sm:inline">Generate All Links</span>
                   </>
                 )}
               </Button>
@@ -391,8 +393,9 @@ export default function DashboardPage() {
                                   toast.success("Link copied to clipboard!")
                                 }}
                                 title="Copy link"
+                                className="h-6 w-6 p-0"
                               >
-                                <Copy className="h-4 w-4" />
+                                <Copy className="h-3 w-3" />
                               </Button>
                             </div>
                           ) : (
@@ -401,17 +404,17 @@ export default function DashboardPage() {
                               size="sm"
                               onClick={() => handleGenerateLink(contract)}
                               disabled={generatingLinkFor === contract.id}
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-1 text-xs px-2"
                             >
                               {generatingLinkFor === contract.id ? (
                                 <>
                                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                                  Generating...
+                                  <span className="hidden sm:inline">Generating...</span>
                                 </>
                               ) : (
                                 <>
-                                  <Link className="h-4 w-4" />
-                                  Generate Link
+                                  <Link className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Generate</span>
                                 </>
                               )}
                             </Button>
@@ -420,9 +423,9 @@ export default function DashboardPage() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button variant="ghost" className="h-6 w-6 p-0">
                                 <span className="sr-only">Open menu</span>
-                                <Plus className="h-4 w-4" />
+                                <Plus className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">

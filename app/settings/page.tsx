@@ -385,10 +385,10 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={removeLogo}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                 >
-                  <X className="h-4 w-4 mr-1" />
-                  Remove
+                  <X className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-1">Remove</span>
                 </Button>
               </div>
             )}
@@ -407,13 +407,24 @@ export default function SettingsPage() {
                   <p className="font-medium">New Logo Preview</p>
                   <p className="text-sm text-muted-foreground">Click upload to save this logo</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <Button
                     onClick={uploadLogo}
                     disabled={isUploadingLogo}
                     size="sm"
+                    className="min-w-0"
                   >
-                    {isUploadingLogo ? "Uploading..." : "Upload"}
+                    {isUploadingLogo ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                        <span className="hidden sm:inline">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3" />
+                        <span className="hidden sm:inline ml-1">Upload</span>
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="outline"
@@ -422,8 +433,10 @@ export default function SettingsPage() {
                       setLogoFile(null)
                       setLogoPreview(null)
                     }}
+                    className="min-w-0"
                   >
-                    Cancel
+                    <X className="h-3 w-3" />
+                    <span className="hidden sm:inline ml-1">Cancel</span>
                   </Button>
                 </div>
               </div>
@@ -483,7 +496,7 @@ export default function SettingsPage() {
                 onKeyPress={(e) => e.key === "Enter" && addClause()}
                 className="flex-1 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
               />
-              <Button onClick={addClause} className="hover:shadow-md transition-shadow">
+              <Button onClick={addClause} className="hover:shadow-md transition-shadow flex-shrink-0" size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -501,9 +514,9 @@ export default function SettingsPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => removeClause(index)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </motion.div>
               ))}
@@ -516,19 +529,19 @@ export default function SettingsPage() {
       <motion.div variants={itemVariants} className="flex justify-end">
         <Button 
           onClick={handleSave} 
-          size="lg" 
+          size="default" 
           disabled={isSaving}
           className="shadow-lg hover:shadow-xl transition-shadow duration-300"
         >
           {isSaving ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Saving...
+              <span className="hidden sm:inline">Saving...</span>
             </>
           ) : (
             <>
-              <Save className="mr-2 h-4 w-4" />
-              Save Settings
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline ml-2">Save Settings</span>
             </>
           )}
         </Button>
