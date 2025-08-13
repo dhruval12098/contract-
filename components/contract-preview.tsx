@@ -85,26 +85,13 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
     scope: Array.isArray(contract.scope) ? contract.scope : [],
   }
 
-  // iOS detection for specific styling
-  const isIOS = typeof window !== 'undefined' && (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  )
-
   return (
     <div
       className="contract-preview-container bg-white dark:bg-gray-900 rounded-lg p-6 min-h-[600px] text-sm leading-relaxed shadow-inner border relative"
       style={{ 
         fontFamily: "Times, serif",
-        // iOS-specific fixes for better PDF rendering
-        ...(isIOS && {
-          WebkitTransform: 'translateZ(0)',
-          transform: 'translateZ(0)',
-          WebkitBackfaceVisibility: 'hidden',
-          backfaceVisibility: 'hidden',
-          WebkitPerspective: '1000px',
-          perspective: '1000px'
-        })
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale'
       }}
     >
       {/* Watermark Logo */}
@@ -114,13 +101,6 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
             src={agency.logo}
             alt="Agency Watermark"
             className="max-w-[300px] max-h-[300px] opacity-5 object-contain"
-            style={{
-              ...(isIOS && {
-                WebkitTransform: 'translateZ(0)',
-                transform: 'translateZ(0)',
-                imageRendering: 'auto'
-              })
-            }}
           />
         </div>
       )}
@@ -397,13 +377,6 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
                   src={safeContract.agencySignature || "/placeholder.svg"}
                   alt="Agency Signature"
                   className="max-w-full max-h-12 object-contain"
-                  style={{
-                    ...(isIOS && {
-                      WebkitTransform: 'translateZ(0)',
-                      transform: 'translateZ(0)',
-                      imageRendering: 'auto'
-                    })
-                  }}
                 />
               )}
             </div>
@@ -422,13 +395,6 @@ export const ContractPreview = memo(function ContractPreview({ contract, agency,
                   src={safeContract.clientSignature || "/placeholder.svg"}
                   alt="Client Signature"
                   className="max-w-full max-h-12 object-contain"
-                  style={{
-                    ...(isIOS && {
-                      WebkitTransform: 'translateZ(0)',
-                      transform: 'translateZ(0)',
-                      imageRendering: 'auto'
-                    })
-                  }}
                 />
               )}
             </div>

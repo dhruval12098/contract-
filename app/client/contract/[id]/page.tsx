@@ -442,8 +442,15 @@ export default function ClientContractPage() {
                 <CardTitle>Contract Details</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="max-h-96 overflow-y-auto">
-                  {contract && agency && <ContractPreview contract={contract} agency={agency} />}
+                <div className="max-h-96 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  {contract && agency ? (
+                    <ContractPreview contract={contract} agency={agency} />
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <p>Loading contract preview...</p>
+                      <p className="text-xs mt-2">Contract: {contract ? '✓' : '✗'} | Agency: {agency ? '✓' : '✗'}</p>
+                    </div>
+                  )}
                 </div>
                 {/* Hidden full contract for PDF generation */}
                 <div className="contract-preview-container" style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm', backgroundColor: 'white', padding: '20mm' }}>

@@ -14,7 +14,7 @@ interface PDFGeneratorProps {
 
 // Import the enhanced PDF generator
 import { generateEnhancedPDF } from "./enhanced-pdf-generator"
-import { generateIOSCompatiblePDF } from "./ios-pdf-generator"
+import { generateSimpleIOSPDF } from "./simple-ios-pdf"
 import { useContractStore } from "@/store/contract-store"
 
 // Export the utility function directly - now uses enhanced generator
@@ -28,7 +28,10 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
     
     // If no current contract, try to find it in contracts array
     if (!contract || contract.id !== contractId) {
-      contract = contracts.find(c => c.id === contractId)
+      const foundContract = contracts.find(c => c.id === contractId)
+      if (foundContract) {
+        contract = foundContract
+      }
     }
     
     if (!contract) {
@@ -41,8 +44,8 @@ export const generatePDF = async (contractId: string, projectTitle?: string, onG
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     
     if (isIOS) {
-      console.log('iOS detected, using text-based PDF generator')
-      await generateIOSCompatiblePDF(contractId, contract, agency, onGenerating)
+      console.log('iOS detected, using simple text-based PDF generator')
+      await generateSimpleIOSPDF(contractId, contract, agency, onGenerating)
     } else {
       console.log('Non-iOS device, using enhanced PDF generator')
       await generateEnhancedPDF(contractId, contract, agency, onGenerating)
